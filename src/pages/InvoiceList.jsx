@@ -38,13 +38,13 @@ const InvoiceList = () => {
     }
   };
 
-  if (isLoading) {
+  /*if (isLoading) {
     return <p>Cargando facturas...</p>;
   }
 
   if (error) {
     return <p style={{ color: "red" }}>Error: {error}</p>;
-  }
+  }*/
 
   return (
     <div className="container">

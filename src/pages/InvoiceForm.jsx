@@ -56,13 +56,13 @@ const InvoiceForm = () => {
     }
   };
 
-  if (isLoading) {
+  /*if (isLoading) {
     return <p>Cargando factura...</p>;
   }
 
   if (error) {
     return <p style={{ color: "red" }}>Error: {error}</p>;
-  }
+  }*/
 
   return (
     <div className="container">
