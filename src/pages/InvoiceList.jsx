@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import api from "../api/axios";
 import useAuth from "../hooks/useAuth";
 
+const baseURL = import.meta.env.VITE_API_URL;
 const InvoiceList = () => {
   const [invoices, setInvoices] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -86,7 +87,7 @@ const InvoiceList = () => {
                     onClick={() => {
                       const token = localStorage.getItem("token");
                       window.open(
-                        `http://localhost:5000/api/invoices/${invoice._id}/pdf?token=${token}`,
+                        `${baseURL}/invoices/${invoice._id}/pdf?token=${token}`,
                         "_blank"
                       );
                     }}

@@ -1,8 +1,10 @@
 import axios from "axios";
 
+const baseURL = import.meta.env.VITE_API_URL;
+
 const api = axios.create({
   //baseURL: 'http://localhost:5000/api',
-  baseURL: "https://invoice-server-ecru.vercel.app/api",
+  baseURL: baseURL,
 });
 
 api.interceptors.request.use(
