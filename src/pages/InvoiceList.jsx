@@ -4,6 +4,7 @@ import api from "../api/axios";
 import useAuth from "../hooks/useAuth";
 
 const baseURL = import.meta.env.VITE_API_URL;
+
 const InvoiceList = () => {
   const [invoices, setInvoices] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
