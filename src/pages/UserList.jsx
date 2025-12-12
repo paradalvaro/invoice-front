@@ -3,40 +3,36 @@ import { Link } from "react-router-dom";
 import api from "../api/axios";
 import useAuth from "../hooks/useAuth";
 
-const baseURL = import.meta.env.VITE_SERVER_URL;
-
-const InvoiceList = () => {
-  const [invoices, setInvoices] = useState([]);
+const UserList = () => {
+  const [users, setUsers] = useState([]);
   const { user: currentUser } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  // const { logout } = useAuth();
 
-  const fetchInvoices = async () => {
-    setIsLoading(true);
-    setError(null);
+  const fetchUsers = async () => {
     try {
-      const response = await api.get("/invoices");
-      setInvoices(response.data);
+      const response = await api.get("/auth/users");
+      setUsers(response.data);
+      setIsLoading(false);
     } catch (err) {
-      console.error("Error fetching invoices:", err);
-      setError("No se pudieron cargar las facturas.");
-    } finally {
+      console.error("Error fetching users:", err);
+      setError("Failed to fetch users");
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchInvoices();
+    fetchUsers();
   }, []);
 
   const handleDelete = async (id) => {
-    if (window.confirm("Are you sure you want to delete this invoice?")) {
+    if (window.confirm("¿Estás seguro de que quieres eliminar este usuario?")) {
       try {
-        await api.delete(`/invoices/${id}`);
-        fetchInvoices();
+        await api.delete(`/auth/users/${id}`);
+        setUsers(users.filter((user) => user._id !== id));
       } catch (err) {
-        console.error("Error deleting invoice:", err);
+        console.error("Error deleting user:", err);
+        alert("Error al eliminar usuario");
       }
     }
   };
@@ -64,7 +60,7 @@ const InvoiceList = () => {
             </span>
           ) : (
             <h2 style={{ fontSize: "1.25rem", fontWeight: "600" }}>
-              Todas las facturas
+              Todos los usuarios
             </h2>
           )}
           <span style={{ color: "var(--color-primary)", cursor: "pointer" }}>
@@ -72,7 +68,7 @@ const InvoiceList = () => {
           </span>
         </div>
         <div className="flex gap-2">
-          <Link to="/invoices/new" className="btn btn-primary">
+          <Link to="/users/new" className="btn btn-primary">
             + Nuevo
           </Link>
           <button className="btn btn-secondary" style={{ padding: "0.5rem" }}>
@@ -81,7 +77,7 @@ const InvoiceList = () => {
         </div>
       </div>
 
-      {/* Filter/Action Bar Pattern (Visual placeholder based on image) */}
+      {/* Filter/Action Bar Pattern */}
       <div
         className="flex justify-between items-center"
         style={{
@@ -121,7 +117,7 @@ const InvoiceList = () => {
                   textTransform: "uppercase",
                 }}
               >
-                <input type="checkbox" />
+                Nombre
               </th>
               <th
                 style={{
@@ -133,7 +129,7 @@ const InvoiceList = () => {
                   textTransform: "uppercase",
                 }}
               >
-                Fecha
+                Apellido
               </th>
               <th
                 style={{
@@ -145,7 +141,7 @@ const InvoiceList = () => {
                   textTransform: "uppercase",
                 }}
               >
-                N.º de Factura
+                Usuario
               </th>
               <th
                 style={{
@@ -157,55 +153,7 @@ const InvoiceList = () => {
                   textTransform: "uppercase",
                 }}
               >
-                Nombre del Cliente
-              </th>
-              <th
-                style={{
-                  padding: "1rem",
-                  textAlign: "left",
-                  fontSize: "0.75rem",
-                  fontWeight: "600",
-                  color: "#64748b",
-                  textTransform: "uppercase",
-                }}
-              >
-                Estado
-              </th>
-              <th
-                style={{
-                  padding: "1rem",
-                  textAlign: "left",
-                  fontSize: "0.75rem",
-                  fontWeight: "600",
-                  color: "#64748b",
-                  textTransform: "uppercase",
-                }}
-              >
-                Vencimiento
-              </th>
-              <th
-                style={{
-                  padding: "1rem",
-                  textAlign: "right",
-                  fontSize: "0.75rem",
-                  fontWeight: "600",
-                  color: "#64748b",
-                  textTransform: "uppercase",
-                }}
-              >
-                Cantidad
-              </th>
-              <th
-                style={{
-                  padding: "1rem",
-                  textAlign: "right",
-                  fontSize: "0.75rem",
-                  fontWeight: "600",
-                  color: "#64748b",
-                  textTransform: "uppercase",
-                }}
-              >
-                Saldo Adeudado
+                Tipo
               </th>
               <th
                 style={{
@@ -222,51 +170,34 @@ const InvoiceList = () => {
             </tr>
           </thead>
           <tbody>
-            {invoices.length === 0 ? (
+            {users.length === 0 ? (
               <tr>
                 <td
-                  colSpan="8"
+                  colSpan="5"
                   style={{
                     padding: "2rem",
                     textAlign: "center",
                     color: "var(--color-text-secondary)",
                   }}
                 >
-                  No hay facturas para mostrar.
+                  No hay usuarios registrados.
                 </td>
               </tr>
             ) : (
-              invoices.map((invoice) => (
+              users.map((user) => (
                 <tr
-                  key={invoice._id}
+                  key={user._id}
                   style={{ borderBottom: "1px solid var(--color-border)" }}
                   className="hover:bg-gray-50"
                 >
-                  <td style={{ padding: "1rem" }}>
-                    <input type="checkbox" />
+                  <td style={{ padding: "1rem", fontSize: "0.9rem" }}>
+                    {user.name}
                   </td>
                   <td style={{ padding: "1rem", fontSize: "0.9rem" }}>
-                    {new Date(invoice.date).toLocaleDateString()}
+                    {user.lastName}
                   </td>
                   <td style={{ padding: "1rem", fontSize: "0.9rem" }}>
-                    <Link
-                      to={`/invoices/${invoice._id}/edit`}
-                      style={{
-                        color: "var(--color-primary)",
-                        fontWeight: "500",
-                      }}
-                    >
-                      {invoice.invoiceNumber}
-                    </Link>
-                  </td>
-                  <td
-                    style={{
-                      padding: "1rem",
-                      fontSize: "0.9rem",
-                      fontWeight: "500",
-                    }}
-                  >
-                    {invoice.clientName}
+                    {user.username}
                   </td>
                   <td style={{ padding: "1rem" }}>
                     <span
@@ -275,94 +206,27 @@ const InvoiceList = () => {
                         padding: "0.2rem 0.5rem",
                         borderRadius: "4px",
                         backgroundColor:
-                          invoice.status === "Paid"
-                            ? "#dcfce7"
-                            : invoice.status === "Draft"
-                            ? "#f3f4f6"
-                            : "#fef9c3",
+                          user.type === "Admin" || user.type === "SuperAdmin"
+                            ? "#dbeafe"
+                            : "#f3f4f6",
                         color:
-                          invoice.status === "Paid"
-                            ? "#166534"
-                            : invoice.status === "Draft"
-                            ? "#64748b"
-                            : "#854d0e",
+                          user.type === "Admin" || user.type === "SuperAdmin"
+                            ? "#1e40af"
+                            : "#4b5563",
                         fontWeight: "600",
                         textTransform: "uppercase",
                       }}
                     >
-                      {invoice.status === "Paid"
-                        ? "Pagado"
-                        : invoice.status === "Draft"
-                        ? "Borrador"
-                        : "Pendiente"}
+                      {user.type}
                     </span>
-                  </td>
-                  <td style={{ padding: "1rem", fontSize: "0.9rem" }}>
-                    {invoice.dueDate
-                      ? new Date(invoice.dueDate).toLocaleDateString()
-                      : "-"}
-                  </td>
-                  <td
-                    style={{
-                      padding: "1rem",
-                      textAlign: "right",
-                      fontSize: "0.9rem",
-                      fontWeight: "600",
-                    }}
-                  >
-                    €{invoice.totalAmount}
-                  </td>
-                  <td
-                    style={{
-                      padding: "1rem",
-                      textAlign: "right",
-                      fontSize: "0.9rem",
-                      fontWeight: "600",
-                    }}
-                  >
-                    €{invoice.status === "Paid" ? "0.00" : invoice.totalAmount}
                   </td>
                   <td style={{ padding: "1rem", textAlign: "right" }}>
                     <div className="flex gap-2 justify-end">
-                      <button
-                        onClick={() => {
-                          const token = localStorage.getItem("token");
-                          window.open(
-                            `${baseURL}/invoices/${invoice._id}/pdf?token=${token}`,
-                            "_blank"
-                          );
-                        }}
-                        style={{
-                          padding: "0.5rem",
-                          fontSize: "0.8rem",
-                          backgroundColor: "transparent",
-                          color: "#ef4444",
-                          borderRadius: "4px",
-                          border: "1px solid #fee2e2",
-                          cursor: "pointer",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                        title="Descargar PDF"
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="16"
-                          height="16"
-                          fill="currentColor"
-                          viewBox="0 0 16 16"
-                        >
-                          <path d="M14 14V4.5L9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2zM9.5 3A1.5 1.5 0 0 0 11 4.5h2V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h5.5v2z" />
-                          <path d="M4.603 14.087a.81.81 0 0 1-.438-.42c-.195-.388-.13-.771.08-1.177.313-.606.746-1.125 1.258-1.474a.846.846 0 0 1 .493-.162c.31 0 .637.228.853.51.272.355.244.82-.046 1.135-.386.415-.89.65-1.446.738a1.59 1.59 0 0 1-.754-.15zm1.517-5.01c-.13-.186-.396-.346-.685-.346-.388 0-.671.216-.838.452-.164.23-.217.58-.09.914.184.484.58.746 1.056.746.402 0 .699-.186.887-.406.19-.22.257-.542.127-.893a.96.96 0 0 0-.457-.467zM10.87 9.873c-.092-.22-.304-.265-.487-.22a1.72 1.72 0 0 0-.82.34l-.403.267c-.206.142-.435.31-.62.482-.127.118-.328.32-.477.534-.145.21-.247.45-.3.687-.075.334.02.668.225.86.196.182.46.225.708.19.467-.066.903-.309 1.272-.647.367-.336.657-.75.787-1.175.068-.22.115-.466.115-.658 0-.17-.046-.35-.115-.53l-.085-.13zm-.793 1.956c-.206 0-.39-.115-.503-.284-.132-.196-.062-.516.143-.807.164-.23.41-.453.69-.613.31-.176.65-.24 1.015-.24.28 0 .546.046.787.14a3.52 3.52 0 0 1 .634.346c.143.102.26.22.316.347.054.12.062.247.02.375-.065.196-.28.336-.513.336a1.18 1.18 0 0 1-.555-.17l-.546-.307c-.426-.24-.764-.534-.954-.805L10 11.455a4.01 4.01 0 0 1-.685.29c-.21.066-.37.085-.453.085z" />
-                        </svg>
-                      </button>
-
                       {(currentUser?.type === "Admin" ||
                         currentUser?.type === "SuperAdmin") && (
                         <>
                           <Link
-                            to={`/invoices/${invoice._id}/edit`}
+                            to={`/users/${user._id}/edit`}
                             style={{
                               padding: "0.5rem",
                               fontSize: "0.8rem",
@@ -389,7 +253,7 @@ const InvoiceList = () => {
                           </Link>
 
                           <button
-                            onClick={() => handleDelete(invoice._id)}
+                            onClick={() => handleDelete(user._id)}
                             style={{
                               padding: "0.5rem",
                               fontSize: "0.8rem",
@@ -432,4 +296,4 @@ const InvoiceList = () => {
   );
 };
 
-export default InvoiceList;
+export default UserList;

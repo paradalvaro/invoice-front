@@ -1,52 +1,252 @@
-import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import useAuth from '../hooks/useAuth';
+import { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import useAuth from "../hooks/useAuth";
 
 const Register = () => {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [file, setFile] = useState(null);
+  const [error, setError] = useState("");
   const { register } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await register(username, password);
-      navigate('/invoices');
+      const formData = new FormData();
+      formData.append("username", username);
+      formData.append("password", password);
+      formData.append("name", name);
+      formData.append("lastName", lastName);
+      if (file) {
+        formData.append("photo", file);
+      }
+      await register(formData);
+      navigate("/invoices");
     } catch (err) {
-      setError('Registration failed. Username might be taken.');
+      console.error(err);
+      setError("Registration failed. Username might be taken.");
     }
   };
 
   return (
     <div className="auth-container">
-      <h2>Register</h2>
-      {error && <p className="error">{error}</p>}
-      <form onSubmit={handleSubmit}>
-        <div>
-          <label>Username</label>
+      <div
+        style={{
+          marginBottom: "2rem",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          gap: "0.5rem",
+        }}
+      >
+        <span style={{ fontSize: "2rem" }}>♾️</span>
+        <h1
+          style={{
+            fontSize: "1.5rem",
+            fontWeight: "bold",
+            margin: 0,
+            color: "var(--color-primary)",
+          }}
+        >
+          Books
+        </h1>
+      </div>
+
+      <h2
+        style={{
+          fontSize: "1.25rem",
+          marginBottom: "1.5rem",
+          color: "var(--color-text-main)",
+        }}
+      >
+        Crear Cuenta
+      </h2>
+
+      {error && (
+        <div
+          style={{
+            backgroundColor: "#fee2e2",
+            color: "#ef4444",
+            padding: "0.75rem",
+            borderRadius: "0.375rem",
+            marginBottom: "1rem",
+            fontSize: "0.875rem",
+          }}
+        >
+          {error}
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} style={{ textAlign: "left" }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: "1rem",
+            marginBottom: "1rem",
+          }}
+        >
+          <div>
+            <label
+              style={{
+                display: "block",
+                marginBottom: "0.5rem",
+                fontWeight: "500",
+                fontSize: "0.875rem",
+                color: "var(--color-text-secondary)",
+              }}
+            >
+              Nombre
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              style={{
+                width: "100%",
+                padding: "0.75rem",
+                borderRadius: "0.375rem",
+                border: "1px solid #cbd5e1",
+                fontSize: "1rem",
+              }}
+              placeholder="Juan"
+            />
+          </div>
+          <div>
+            <label
+              style={{
+                display: "block",
+                marginBottom: "0.5rem",
+                fontWeight: "500",
+                fontSize: "0.875rem",
+                color: "var(--color-text-secondary)",
+              }}
+            >
+              Apellido
+            </label>
+            <input
+              type="text"
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+              required
+              style={{
+                width: "100%",
+                padding: "0.75rem",
+                borderRadius: "0.375rem",
+                border: "1px solid #cbd5e1",
+                fontSize: "1rem",
+              }}
+              placeholder="Pérez"
+            />
+          </div>
+        </div>
+
+        <div style={{ marginBottom: "1rem" }}>
+          <label
+            style={{
+              display: "block",
+              marginBottom: "0.5rem",
+              fontWeight: "500",
+              fontSize: "0.875rem",
+              color: "var(--color-text-secondary)",
+            }}
+          >
+            Usuario
+          </label>
           <input
             type="text"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             required
+            style={{
+              width: "100%",
+              padding: "0.75rem",
+              borderRadius: "0.375rem",
+              border: "1px solid #cbd5e1",
+              fontSize: "1rem",
+            }}
+            placeholder="Elige un usuario"
           />
         </div>
-        <div>
-          <label>Password</label>
+        <div style={{ marginBottom: "1.5rem" }}>
+          <label
+            style={{
+              display: "block",
+              marginBottom: "0.5rem",
+              fontWeight: "500",
+              fontSize: "0.875rem",
+              color: "var(--color-text-secondary)",
+            }}
+          >
+            Contraseña
+          </label>
           <input
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
+            style={{
+              width: "100%",
+              padding: "0.75rem",
+              borderRadius: "0.375rem",
+              border: "1px solid #cbd5e1",
+              fontSize: "1rem",
+            }}
+            placeholder="••••••••"
           />
         </div>
-        <button type="submit">Register</button>
+        <div style={{ marginBottom: "1.5rem" }}>
+          <label
+            style={{
+              display: "block",
+              marginBottom: "0.5rem",
+              fontWeight: "500",
+              fontSize: "0.875rem",
+              color: "var(--color-text-secondary)",
+            }}
+          >
+            Foto de Perfil
+          </label>
+          <input
+            type="file"
+            onChange={(e) => setFile(e.target.files[0])}
+            accept="image/*"
+            style={{
+              width: "100%",
+              padding: "0.75rem",
+              borderRadius: "0.375rem",
+              border: "1px solid #cbd5e1",
+              fontSize: "1rem",
+            }}
+          />
+        </div>
+        <button
+          type="submit"
+          className="btn btn-primary"
+          style={{ width: "100%", padding: "0.75rem", fontSize: "1rem" }}
+        >
+          Registrarse
+        </button>
       </form>
-      <p>
-        Already have an account? <Link to="/login">Login</Link>
-      </p>
+      <div
+        style={{
+          marginTop: "1.5rem",
+          fontSize: "0.875rem",
+          color: "var(--color-text-secondary)",
+        }}
+      >
+        ¿Ya tienes cuenta?{" "}
+        <Link
+          to="/login"
+          style={{ color: "var(--color-primary)", fontWeight: "500" }}
+        >
+          Inicia Sesión
+        </Link>
+      </div>
     </div>
   );
 };
