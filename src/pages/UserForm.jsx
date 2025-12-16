@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../api/axios";
+import { useLanguage } from "../context/LanguageContext";
 
 const UserForm = () => {
   const { id } = useParams();
   const isEditMode = Boolean(id);
+  const { t } = useLanguage();
   const [formData, setFormData] = useState({
     username: "",
     name: "",
@@ -36,11 +38,11 @@ const UserForm = () => {
         })
         .catch((err) => {
           console.error("Error fetching user:", err);
-          setError("Failed to fetch user details");
+          setError(t("error"));
           setIsLoading(false);
         });
     }
-  }, [id, isEditMode]);
+  }, [id, isEditMode, t]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -76,7 +78,7 @@ const UserForm = () => {
       navigate("/users");
     } catch (err) {
       console.error("Error saving user:", err);
-      setError(err.response?.data?.message || "Failed to save user");
+      setError(err.response?.data?.message || t("error"));
       setIsLoading(false);
     }
   };
@@ -92,7 +94,7 @@ const UserForm = () => {
             marginBottom: "1.5rem",
           }}
         >
-          {isEditMode ? "Editar Usuario" : "Nuevo Usuario"}
+          {isEditMode ? t("editUser") : t("newUser")}
         </h1>
 
         <div
@@ -131,7 +133,7 @@ const UserForm = () => {
                   color: "var(--color-text-secondary)",
                 }}
               >
-                Nombre
+                {t("name")}
               </label>
               <input
                 type="text"
@@ -157,7 +159,7 @@ const UserForm = () => {
                   color: "var(--color-text-secondary)",
                 }}
               >
-                Apellido
+                {t("lastName")}
               </label>
               <input
                 type="text"
@@ -183,7 +185,7 @@ const UserForm = () => {
                   color: "var(--color-text-secondary)",
                 }}
               >
-                Usuario
+                {t("username")}
               </label>
               <input
                 type="text"
@@ -212,7 +214,7 @@ const UserForm = () => {
                     color: "var(--color-text-secondary)",
                   }}
                 >
-                  Contraseña
+                  {t("password")}
                 </label>
                 <input
                   type="password"
@@ -239,7 +241,7 @@ const UserForm = () => {
                   color: "var(--color-text-secondary)",
                 }}
               >
-                Tipo
+                {t("role")}
               </label>
               <select
                 name="type"
@@ -267,7 +269,7 @@ const UserForm = () => {
                   color: "var(--color-text-secondary)",
                 }}
               >
-                Foto de Perfil
+                {t("photo")}
               </label>
               <input
                 type="file"
@@ -299,14 +301,14 @@ const UserForm = () => {
                   fontWeight: "500",
                 }}
               >
-                Cancelar
+                {t("cancel")}
               </button>
               <button
                 disabled={isLoading}
                 type="submit"
                 className="btn btn-primary"
               >
-                {isLoading ? "Guardando..." : "Guardar Cambios"}
+                {isLoading ? t("saving") : t("saveChanges")}
               </button>
             </div>
           </form>

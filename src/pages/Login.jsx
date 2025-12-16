@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import useAuth from "../hooks/useAuth";
+import { useLanguage } from "../context/LanguageContext";
 
 const Login = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const { login } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -16,7 +18,7 @@ const Login = () => {
       navigate("/invoices");
     } catch (err) {
       // console.error(err);
-      setError("Invalid credentials");
+      setError(t("loginError"));
     }
   };
 
@@ -51,7 +53,7 @@ const Login = () => {
           color: "var(--color-text-main)",
         }}
       >
-        Iniciar Sesión
+        {t("login")}
       </h2>
 
       {error && (
@@ -80,7 +82,7 @@ const Login = () => {
               color: "var(--color-text-secondary)",
             }}
           >
-            Usuario
+            {t("username")}
           </label>
           <input
             type="text"
@@ -94,7 +96,7 @@ const Login = () => {
               border: "1px solid #cbd5e1",
               fontSize: "1rem",
             }}
-            placeholder="Introduce tu usuario"
+            placeholder={t("placeholderUsername")}
           />
         </div>
         <div style={{ marginBottom: "1.5rem" }}>
@@ -107,7 +109,7 @@ const Login = () => {
               color: "var(--color-text-secondary)",
             }}
           >
-            Contraseña
+            {t("password")}
           </label>
           <input
             type="password"
@@ -121,7 +123,7 @@ const Login = () => {
               border: "1px solid #cbd5e1",
               fontSize: "1rem",
             }}
-            placeholder="••••••••"
+            placeholder={t("placeholderPassword")}
           />
         </div>
         <button
@@ -129,7 +131,7 @@ const Login = () => {
           className="btn btn-primary"
           style={{ width: "100%", padding: "0.75rem", fontSize: "1rem" }}
         >
-          Entrar
+          {t("loginButton")}
         </button>
       </form>
       <div
@@ -139,12 +141,12 @@ const Login = () => {
           color: "var(--color-text-secondary)",
         }}
       >
-        ¿No tienes cuenta?{" "}
+        {t("noAccount")}{" "}
         <Link
           to="/register"
           style={{ color: "var(--color-primary)", fontWeight: "500" }}
         >
-          Regístrate
+          {t("register")}
         </Link>
       </div>
     </div>

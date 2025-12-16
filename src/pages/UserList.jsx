@@ -2,31 +2,50 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import api from "../api/axios";
 import useAuth from "../hooks/useAuth";
+import { useLanguage } from "../context/LanguageContext";
 
 const UserList = () => {
   const [users, setUsers] = useState([]);
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalItems: 0,
+  });
   const { user: currentUser } = useAuth();
+  const { t } = useLanguage();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const fetchUsers = async () => {
     try {
-      const response = await api.get("/auth/users");
-      setUsers(response.data);
+      const response = await api.get(
+        `/auth/users?page=${pagination.currentPage}&limit=10`
+      );
+      if (response.data.data) {
+        setUsers(response.data.data);
+        setPagination((prev) => ({
+          ...prev,
+          totalPages: response.data.totalPages,
+          totalItems: response.data.totalItems,
+        }));
+      } else {
+        setUsers(Array.isArray(response.data) ? response.data : []);
+      }
       setIsLoading(false);
     } catch (err) {
       console.error("Error fetching users:", err);
-      setError("Failed to fetch users");
+      setError(t("error"));
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
     fetchUsers();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pagination.currentPage]);
 
   const handleDelete = async (id) => {
-    if (window.confirm("¿Estás seguro de que quieres eliminar este usuario?")) {
+    if (window.confirm(t("confirmDelete"))) {
       try {
         await api.delete(`/auth/users/${id}`);
         setUsers(users.filter((user) => user._id !== id));
@@ -52,7 +71,7 @@ const UserList = () => {
                 color: "var(--color-text-secondary)",
               }}
             >
-              Loading...
+              {t("loading")}
             </span>
           ) : error ? (
             <span style={{ fontSize: "0.9rem", color: "var(--color-danger)" }}>
@@ -60,7 +79,7 @@ const UserList = () => {
             </span>
           ) : (
             <h2 style={{ fontSize: "1.25rem", fontWeight: "600" }}>
-              Todos los usuarios
+              {t("allUsers")}
             </h2>
           )}
           <span style={{ color: "var(--color-primary)", cursor: "pointer" }}>
@@ -69,7 +88,7 @@ const UserList = () => {
         </div>
         <div className="flex gap-2">
           <Link to="/users/new" className="btn btn-primary">
-            + Nuevo
+            + {t("new")}
           </Link>
           <button className="btn btn-secondary" style={{ padding: "0.5rem" }}>
             ...
@@ -117,7 +136,7 @@ const UserList = () => {
                   textTransform: "uppercase",
                 }}
               >
-                Nombre
+                {t("name")}
               </th>
               <th
                 style={{
@@ -129,7 +148,7 @@ const UserList = () => {
                   textTransform: "uppercase",
                 }}
               >
-                Apellido
+                {t("lastName")}
               </th>
               <th
                 style={{
@@ -141,7 +160,7 @@ const UserList = () => {
                   textTransform: "uppercase",
                 }}
               >
-                Usuario
+                {t("username")}
               </th>
               <th
                 style={{
@@ -153,7 +172,7 @@ const UserList = () => {
                   textTransform: "uppercase",
                 }}
               >
-                Tipo
+                {t("role")}
               </th>
               <th
                 style={{
@@ -165,7 +184,7 @@ const UserList = () => {
                   textTransform: "uppercase",
                 }}
               >
-                Acciones
+                {t("actions")}
               </th>
             </tr>
           </thead>
@@ -180,7 +199,7 @@ const UserList = () => {
                     color: "var(--color-text-secondary)",
                   }}
                 >
-                  No hay usuarios registrados.
+                  {t("noUsers")}
                 </td>
               </tr>
             ) : (
@@ -239,7 +258,7 @@ const UserList = () => {
                               alignItems: "center",
                               justifyContent: "center",
                             }}
-                            title="Editar"
+                            title={t("edit")}
                           >
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
@@ -266,7 +285,7 @@ const UserList = () => {
                               alignItems: "center",
                               justifyContent: "center",
                             }}
-                            title="Eliminar"
+                            title={t("delete")}
                           >
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
@@ -291,6 +310,55 @@ const UserList = () => {
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Pagination Controls */}
+      <div
+        className="flex justify-between items-center"
+        style={{ marginTop: "1rem", padding: "0 1rem" }}
+      >
+        <button
+          onClick={() =>
+            setPagination((prev) => ({
+              ...prev,
+              currentPage: Math.max(1, prev.currentPage - 1),
+            }))
+          }
+          disabled={pagination.currentPage === 1}
+          className="btn btn-secondary"
+          style={{
+            opacity: pagination.currentPage === 1 ? 0.5 : 1,
+            pointerEvents: pagination.currentPage === 1 ? "none" : "auto",
+          }}
+        >
+          {t("previous")}
+        </button>
+        <span
+          style={{ color: "var(--color-text-secondary)", fontSize: "0.9rem" }}
+        >
+          {t("pageOf")
+            .replace("{current}", pagination.currentPage)
+            .replace("{total}", pagination.totalPages)}
+        </span>
+        <button
+          onClick={() =>
+            setPagination((prev) => ({
+              ...prev,
+              currentPage: Math.min(prev.totalPages, prev.currentPage + 1),
+            }))
+          }
+          disabled={pagination.currentPage === pagination.totalPages}
+          className="btn btn-secondary"
+          style={{
+            opacity: pagination.currentPage === pagination.totalPages ? 0.5 : 1,
+            pointerEvents:
+              pagination.currentPage === pagination.totalPages
+                ? "none"
+                : "auto",
+          }}
+        >
+          {t("next")}
+        </button>
       </div>
     </div>
   );

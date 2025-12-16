@@ -1,15 +1,17 @@
 import { Link, useLocation } from "react-router-dom";
+import { useLanguage } from "../context/LanguageContext";
 
 const Sidebar = () => {
   const location = useLocation();
+  const { t } = useLanguage();
 
   const navItems = [
-    { label: "Inicio", path: "/dashboard", icon: "🏠" },
+    { label: t("home"), path: "/dashboard", icon: "🏠" },
     //{ label: "Artículos", path: "/items", icon: "🛍️" },
-    { label: "Ventas", path: "/invoices", icon: "🛒" }, // Mapping Invoices to Ventas for now
+    { label: t("sales"), path: "/invoices", icon: "🛒" }, // Mapping Invoices to Ventas for now
     //{ label: "Clientes", path: "/clients", icon: "👥" },
     //{ label: "Estimaciones", path: "/estimates", icon: "📄" },
-    { label: "Usuarios", path: "/users", icon: "👤" },
+    { label: t("users"), path: "/users", icon: "👤" },
     // Add other items as visual placeholders if needed
   ];
 

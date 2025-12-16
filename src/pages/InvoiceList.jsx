@@ -2,12 +2,19 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import api from "../api/axios";
 import useAuth from "../hooks/useAuth";
+import { useLanguage } from "../context/LanguageContext";
 
 const baseURL = import.meta.env.VITE_SERVER_URL;
 
 const InvoiceList = () => {
   const [invoices, setInvoices] = useState([]);
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalItems: 0,
+  });
   const { user: currentUser } = useAuth();
+  const { t } = useLanguage();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   // const { logout } = useAuth();
@@ -16,11 +23,23 @@ const InvoiceList = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await api.get("/invoices");
-      setInvoices(response.data);
+      const response = await api.get(
+        `/invoices?page=${pagination.currentPage}&limit=10`
+      );
+      if (response.data.data) {
+        setInvoices(response.data.data);
+        setPagination((prev) => ({
+          ...prev,
+          totalPages: response.data.totalPages,
+          totalItems: response.data.totalItems,
+        }));
+      } else {
+        // Fallback if backend API hasn't been updated yet or returns different structure
+        setInvoices(Array.isArray(response.data) ? response.data : []);
+      }
     } catch (err) {
       console.error("Error fetching invoices:", err);
-      setError("No se pudieron cargar las facturas.");
+      setError(t("error"));
     } finally {
       setIsLoading(false);
     }
@@ -28,10 +47,11 @@ const InvoiceList = () => {
 
   useEffect(() => {
     fetchInvoices();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pagination.currentPage]);
 
   const handleDelete = async (id) => {
-    if (window.confirm("Are you sure you want to delete this invoice?")) {
+    if (window.confirm(t("confirmDelete"))) {
       try {
         await api.delete(`/invoices/${id}`);
         fetchInvoices();
@@ -56,7 +76,7 @@ const InvoiceList = () => {
                 color: "var(--color-text-secondary)",
               }}
             >
-              Loading...
+              {t("loading")}
             </span>
           ) : error ? (
             <span style={{ fontSize: "0.9rem", color: "var(--color-danger)" }}>
@@ -64,7 +84,7 @@ const InvoiceList = () => {
             </span>
           ) : (
             <h2 style={{ fontSize: "1.25rem", fontWeight: "600" }}>
-              Todas las facturas
+              {t("allInvoices")}
             </h2>
           )}
           <span style={{ color: "var(--color-primary)", cursor: "pointer" }}>
@@ -73,7 +93,7 @@ const InvoiceList = () => {
         </div>
         <div className="flex gap-2">
           <Link to="/invoices/new" className="btn btn-primary">
-            + Nuevo
+            + {t("new")}
           </Link>
           <button className="btn btn-secondary" style={{ padding: "0.5rem" }}>
             ...
@@ -133,7 +153,7 @@ const InvoiceList = () => {
                   textTransform: "uppercase",
                 }}
               >
-                Fecha
+                {t("date")}
               </th>
               <th
                 style={{
@@ -145,7 +165,7 @@ const InvoiceList = () => {
                   textTransform: "uppercase",
                 }}
               >
-                N.º de Factura
+                {t("invoiceNumber")}
               </th>
               <th
                 style={{
@@ -157,7 +177,7 @@ const InvoiceList = () => {
                   textTransform: "uppercase",
                 }}
               >
-                Nombre del Cliente
+                {t("clientName")}
               </th>
               <th
                 style={{
@@ -169,7 +189,7 @@ const InvoiceList = () => {
                   textTransform: "uppercase",
                 }}
               >
-                Estado
+                {t("owner")}
               </th>
               <th
                 style={{
@@ -181,7 +201,19 @@ const InvoiceList = () => {
                   textTransform: "uppercase",
                 }}
               >
-                Vencimiento
+                {t("status")}
+              </th>
+              <th
+                style={{
+                  padding: "1rem",
+                  textAlign: "left",
+                  fontSize: "0.75rem",
+                  fontWeight: "600",
+                  color: "#64748b",
+                  textTransform: "uppercase",
+                }}
+              >
+                {t("dueDate")}
               </th>
               <th
                 style={{
@@ -193,7 +225,7 @@ const InvoiceList = () => {
                   textTransform: "uppercase",
                 }}
               >
-                Cantidad
+                {t("totalAmount")}
               </th>
               <th
                 style={{
@@ -205,7 +237,7 @@ const InvoiceList = () => {
                   textTransform: "uppercase",
                 }}
               >
-                Saldo Adeudado
+                {t("balanceDue")}
               </th>
               <th
                 style={{
@@ -217,7 +249,7 @@ const InvoiceList = () => {
                   textTransform: "uppercase",
                 }}
               >
-                Acciones
+                {t("actions")}
               </th>
             </tr>
           </thead>
@@ -232,7 +264,7 @@ const InvoiceList = () => {
                     color: "var(--color-text-secondary)",
                   }}
                 >
-                  No hay facturas para mostrar.
+                  {t("noInvoices")}
                 </td>
               </tr>
             ) : (
@@ -268,6 +300,15 @@ const InvoiceList = () => {
                   >
                     {invoice.clientName}
                   </td>
+                  <td
+                    style={{
+                      padding: "1rem",
+                      fontSize: "0.9rem",
+                      fontWeight: "500",
+                    }}
+                  >
+                    {invoice.userId?.username || "N/A"}
+                  </td>
                   <td style={{ padding: "1rem" }}>
                     <span
                       style={{
@@ -291,10 +332,10 @@ const InvoiceList = () => {
                       }}
                     >
                       {invoice.status === "Paid"
-                        ? "Pagado"
+                        ? t("statusPaid")
                         : invoice.status === "Draft"
-                        ? "Borrador"
-                        : "Pendiente"}
+                        ? t("statusDraft")
+                        : t("statusPending")}
                     </span>
                   </td>
                   <td style={{ padding: "1rem", fontSize: "0.9rem" }}>
@@ -344,7 +385,7 @@ const InvoiceList = () => {
                           alignItems: "center",
                           justifyContent: "center",
                         }}
-                        title="Descargar PDF"
+                        title={t("downloadPDF")}
                       >
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
@@ -375,7 +416,7 @@ const InvoiceList = () => {
                               alignItems: "center",
                               justifyContent: "center",
                             }}
-                            title="Editar"
+                            title={t("edit")}
                           >
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
@@ -402,7 +443,7 @@ const InvoiceList = () => {
                               alignItems: "center",
                               justifyContent: "center",
                             }}
-                            title="Eliminar"
+                            title={t("delete")}
                           >
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
@@ -427,6 +468,55 @@ const InvoiceList = () => {
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Pagination Controls */}
+      <div
+        className="flex justify-between items-center"
+        style={{ marginTop: "1rem", padding: "0 1rem" }}
+      >
+        <button
+          onClick={() =>
+            setPagination((prev) => ({
+              ...prev,
+              currentPage: Math.max(1, prev.currentPage - 1),
+            }))
+          }
+          disabled={pagination.currentPage === 1}
+          className="btn btn-secondary"
+          style={{
+            opacity: pagination.currentPage === 1 ? 0.5 : 1,
+            pointerEvents: pagination.currentPage === 1 ? "none" : "auto",
+          }}
+        >
+          {t("previous")}
+        </button>
+        <span
+          style={{ color: "var(--color-text-secondary)", fontSize: "0.9rem" }}
+        >
+          {t("pageOf")
+            .replace("{current}", pagination.currentPage)
+            .replace("{total}", pagination.totalPages)}
+        </span>
+        <button
+          onClick={() =>
+            setPagination((prev) => ({
+              ...prev,
+              currentPage: Math.min(prev.totalPages, prev.currentPage + 1),
+            }))
+          }
+          disabled={pagination.currentPage === pagination.totalPages}
+          className="btn btn-secondary"
+          style={{
+            opacity: pagination.currentPage === pagination.totalPages ? 0.5 : 1,
+            pointerEvents:
+              pagination.currentPage === pagination.totalPages
+                ? "none"
+                : "auto",
+          }}
+        >
+          {t("next")}
+        </button>
       </div>
     </div>
   );

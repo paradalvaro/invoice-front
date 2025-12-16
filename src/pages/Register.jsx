@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import useAuth from "../hooks/useAuth";
+import { useLanguage } from "../context/LanguageContext";
 
 const Register = () => {
   const [username, setUsername] = useState("");
@@ -10,6 +11,7 @@ const Register = () => {
   const [file, setFile] = useState(null);
   const [error, setError] = useState("");
   const { register } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -27,7 +29,7 @@ const Register = () => {
       navigate("/invoices");
     } catch (err) {
       console.error(err);
-      setError("Registration failed. Username might be taken.");
+      setError(t("error"));
     }
   };
 
@@ -62,7 +64,7 @@ const Register = () => {
           color: "var(--color-text-main)",
         }}
       >
-        Crear Cuenta
+        {t("registerTitle")}
       </h2>
 
       {error && (
@@ -99,7 +101,7 @@ const Register = () => {
                 color: "var(--color-text-secondary)",
               }}
             >
-              Nombre
+              {t("name")}
             </label>
             <input
               type="text"
@@ -126,7 +128,7 @@ const Register = () => {
                 color: "var(--color-text-secondary)",
               }}
             >
-              Apellido
+              {t("lastName")}
             </label>
             <input
               type="text"
@@ -155,7 +157,7 @@ const Register = () => {
               color: "var(--color-text-secondary)",
             }}
           >
-            Usuario
+            {t("username")}
           </label>
           <input
             type="text"
@@ -169,7 +171,7 @@ const Register = () => {
               border: "1px solid #cbd5e1",
               fontSize: "1rem",
             }}
-            placeholder="Elige un usuario"
+            placeholder={t("placeholderUsername")}
           />
         </div>
         <div style={{ marginBottom: "1.5rem" }}>
@@ -182,7 +184,7 @@ const Register = () => {
               color: "var(--color-text-secondary)",
             }}
           >
-            Contraseña
+            {t("password")}
           </label>
           <input
             type="password"
@@ -196,7 +198,7 @@ const Register = () => {
               border: "1px solid #cbd5e1",
               fontSize: "1rem",
             }}
-            placeholder="••••••••"
+            placeholder={t("placeholderPassword")}
           />
         </div>
         <div style={{ marginBottom: "1.5rem" }}>
@@ -209,7 +211,7 @@ const Register = () => {
               color: "var(--color-text-secondary)",
             }}
           >
-            Foto de Perfil
+            {t("photo")}
           </label>
           <input
             type="file"
@@ -229,7 +231,7 @@ const Register = () => {
           className="btn btn-primary"
           style={{ width: "100%", padding: "0.75rem", fontSize: "1rem" }}
         >
-          Registrarse
+          {t("registerButton")}
         </button>
       </form>
       <div
@@ -239,12 +241,12 @@ const Register = () => {
           color: "var(--color-text-secondary)",
         }}
       >
-        ¿Ya tienes cuenta?{" "}
+        {t("haveAccount")}{" "}
         <Link
           to="/login"
           style={{ color: "var(--color-primary)", fontWeight: "500" }}
         >
-          Inicia Sesión
+          {t("login")}
         </Link>
       </div>
     </div>

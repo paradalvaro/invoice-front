@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../api/axios";
+import { useLanguage } from "../context/LanguageContext";
 
 const InvoiceForm = () => {
+  const { t } = useLanguage();
   const [formData, setFormData] = useState({
     invoiceNumber: "",
     clientName: "",
@@ -35,7 +37,7 @@ const InvoiceForm = () => {
       });
     } catch (err) {
       console.error("Error fetching invoice:", err);
-      setError("Failed to fetch invoice");
+      setError(t("error"));
     } finally {
       setIsLoading(false);
     }
@@ -66,17 +68,6 @@ const InvoiceForm = () => {
     }
   };
 
-  /*if (isLoading) {
-    return (
-      <div
-        className="container"
-        style={{ textAlign: "center", padding: "2rem" }}
-      >
-        Cargando factura...
-      </div>
-    );
-  }*/
-
   if (error) {
     return (
       <div
@@ -99,13 +90,13 @@ const InvoiceForm = () => {
         style={{ marginBottom: "1.5rem" }}
       >
         <h2 style={{ fontSize: "1.5rem", fontWeight: "600" }}>
-          {isEditMode ? "Editar Factura" : "Nueva Factura"}
+          {isEditMode ? t("editInvoice") : t("newInvoice")}
         </h2>
         <button
           onClick={() => navigate("/invoices")}
           className="btn btn-secondary"
         >
-          Cancelar
+          {t("cancel")}
         </button>
       </div>
 
@@ -134,7 +125,7 @@ const InvoiceForm = () => {
                   color: "var(--color-text-secondary)",
                 }}
               >
-                Nombre del Cliente
+                {t("clientName")}
               </label>
               <input
                 type="text"
@@ -143,7 +134,7 @@ const InvoiceForm = () => {
                 onChange={handleChange}
                 required
                 style={{ fontSize: "1rem" }}
-                placeholder="Ej. Empresa S.A."
+                placeholder={t("placeholderClient")}
               />
             </div>
 
@@ -156,7 +147,7 @@ const InvoiceForm = () => {
                   color: "var(--color-text-secondary)",
                 }}
               >
-                Número de Factura
+                {t("invoiceNumber")}
               </label>
               <input
                 type="text"
@@ -164,7 +155,7 @@ const InvoiceForm = () => {
                 value={formData.invoiceNumber}
                 onChange={handleChange}
                 required
-                placeholder="INV-00000"
+                placeholder={t("placeholderInvoice")}
               />
             </div>
 
@@ -177,7 +168,7 @@ const InvoiceForm = () => {
                   color: "var(--color-text-secondary)",
                 }}
               >
-                Fecha
+                {t("date")}
               </label>
               <input
                 type="date"
@@ -197,7 +188,7 @@ const InvoiceForm = () => {
                   color: "var(--color-text-secondary)",
                 }}
               >
-                Vencimiento
+                {t("dueDate")}
               </label>
               <input
                 type="date"
@@ -217,7 +208,7 @@ const InvoiceForm = () => {
                   color: "var(--color-text-secondary)",
                 }}
               >
-                Estado
+                {t("status")}
               </label>
               <select
                 name="status"
@@ -230,9 +221,9 @@ const InvoiceForm = () => {
                   border: "1px solid #cbd5e1",
                 }}
               >
-                <option value="Draft">Borrador</option>
-                <option value="Pending">Pendiente</option>
-                <option value="Paid">Pagado</option>
+                <option value="Draft">{t("statusDraft")}</option>
+                <option value="Pending">{t("statusPending")}</option>
+                <option value="Paid">{t("statusPaid")}</option>
               </select>
             </div>
 
@@ -245,7 +236,7 @@ const InvoiceForm = () => {
                   color: "var(--color-text-secondary)",
                 }}
               >
-                Monto Total
+                {t("totalAmount")}
               </label>
               <div style={{ position: "relative" }}>
                 <span
@@ -281,7 +272,7 @@ const InvoiceForm = () => {
               className="btn btn-primary"
               style={{ padding: "0.75rem 2rem", fontSize: "1rem" }}
             >
-              {isEditMode ? "Actualizar Factura" : "Crear Factura"}
+              {isEditMode ? t("updateInvoice") : t("createInvoice")}
             </button>
           </div>
         </form>
