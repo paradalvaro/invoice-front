@@ -11,6 +11,8 @@ const UserList = () => {
     totalPages: 1,
     totalItems: 0,
   });
+  const [sortBy, setSortBy] = useState("name");
+  const [sortOrder, setSortOrder] = useState("asc");
   const { user: currentUser } = useAuth();
   const { t } = useLanguage();
   const [isLoading, setIsLoading] = useState(true);
@@ -19,7 +21,7 @@ const UserList = () => {
   const fetchUsers = async () => {
     try {
       const response = await api.get(
-        `/auth/users?page=${pagination.currentPage}&limit=10`
+        `/auth/users?page=${pagination.currentPage}&limit=10&sortBy=${sortBy}&order=${sortOrder}`
       );
       if (response.data.data) {
         setUsers(response.data.data);
@@ -42,7 +44,45 @@ const UserList = () => {
   useEffect(() => {
     fetchUsers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pagination.currentPage]);
+  }, [pagination.currentPage, sortBy, sortOrder]);
+
+  const handleSort = (field) => {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortBy(field);
+      setSortOrder("asc");
+    }
+    setPagination((prev) => ({ ...prev, currentPage: 1 }));
+  };
+
+  const SortIcon = ({ field }) => {
+    if (sortBy !== field)
+      return (
+        <span
+          style={{
+            marginLeft: "0.25rem",
+            color: "#94a3b8",
+            fontSize: "0.8rem",
+          }}
+        >
+          ↕
+        </span>
+      );
+    return sortOrder === "asc" ? (
+      <span
+        style={{ marginLeft: "0.25rem", color: "#6366f1", fontSize: "0.8rem" }}
+      >
+        ↑
+      </span>
+    ) : (
+      <span
+        style={{ marginLeft: "0.25rem", color: "#6366f1", fontSize: "0.8rem" }}
+      >
+        ↓
+      </span>
+    );
+  };
 
   const handleDelete = async (id) => {
     if (window.confirm(t("confirmDelete"))) {
@@ -115,10 +155,13 @@ const UserList = () => {
           backgroundColor: "white",
           borderRadius: "8px",
           boxShadow: "var(--shadow-sm)",
-          overflow: "hidden",
+          overflowX: "auto",
         }}
       >
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <table
+          className="responsive-table"
+          style={{ width: "100%", borderCollapse: "collapse" }}
+        >
           <thead>
             <tr
               style={{
@@ -127,6 +170,7 @@ const UserList = () => {
               }}
             >
               <th
+                onClick={() => handleSort("name")}
                 style={{
                   padding: "1rem",
                   textAlign: "left",
@@ -134,11 +178,16 @@ const UserList = () => {
                   fontWeight: "600",
                   color: "#64748b",
                   textTransform: "uppercase",
+                  cursor: "pointer",
+                  userSelect: "none",
                 }}
               >
-                {t("name")}
+                <div className="flex items-center">
+                  {t("name")} <SortIcon field="name" />
+                </div>
               </th>
               <th
+                onClick={() => handleSort("lastName")}
                 style={{
                   padding: "1rem",
                   textAlign: "left",
@@ -146,11 +195,16 @@ const UserList = () => {
                   fontWeight: "600",
                   color: "#64748b",
                   textTransform: "uppercase",
+                  cursor: "pointer",
+                  userSelect: "none",
                 }}
               >
-                {t("lastName")}
+                <div className="flex items-center">
+                  {t("lastName")} <SortIcon field="lastName" />
+                </div>
               </th>
               <th
+                onClick={() => handleSort("username")}
                 style={{
                   padding: "1rem",
                   textAlign: "left",
@@ -158,11 +212,16 @@ const UserList = () => {
                   fontWeight: "600",
                   color: "#64748b",
                   textTransform: "uppercase",
+                  cursor: "pointer",
+                  userSelect: "none",
                 }}
               >
-                {t("username")}
+                <div className="flex items-center">
+                  {t("username")} <SortIcon field="username" />
+                </div>
               </th>
               <th
+                onClick={() => handleSort("type")}
                 style={{
                   padding: "1rem",
                   textAlign: "left",
@@ -170,14 +229,18 @@ const UserList = () => {
                   fontWeight: "600",
                   color: "#64748b",
                   textTransform: "uppercase",
+                  cursor: "pointer",
+                  userSelect: "none",
                 }}
               >
-                {t("role")}
+                <div className="flex items-center">
+                  {t("role")} <SortIcon field="type" />
+                </div>
               </th>
               <th
                 style={{
                   padding: "1rem",
-                  textAlign: "right",
+                  textAlign: "left",
                   fontSize: "0.75rem",
                   fontWeight: "600",
                   color: "#64748b",
@@ -209,16 +272,25 @@ const UserList = () => {
                   style={{ borderBottom: "1px solid var(--color-border)" }}
                   className="hover:bg-gray-50"
                 >
-                  <td style={{ padding: "1rem", fontSize: "0.9rem" }}>
+                  <td
+                    style={{ padding: "1rem", fontSize: "0.9rem" }}
+                    data-label={t("name")}
+                  >
                     {user.name}
                   </td>
-                  <td style={{ padding: "1rem", fontSize: "0.9rem" }}>
+                  <td
+                    style={{ padding: "1rem", fontSize: "0.9rem" }}
+                    data-label={t("lastName")}
+                  >
                     {user.lastName}
                   </td>
-                  <td style={{ padding: "1rem", fontSize: "0.9rem" }}>
+                  <td
+                    style={{ padding: "1rem", fontSize: "0.9rem" }}
+                    data-label={t("username")}
+                  >
                     {user.username}
                   </td>
-                  <td style={{ padding: "1rem" }}>
+                  <td style={{ padding: "1rem" }} data-label={t("role")}>
                     <span
                       style={{
                         fontSize: "0.75rem",
@@ -239,7 +311,10 @@ const UserList = () => {
                       {user.type}
                     </span>
                   </td>
-                  <td style={{ padding: "1rem", textAlign: "right" }}>
+                  <td
+                    style={{ padding: "1rem", textAlign: "right" }}
+                    data-label={t("actions")}
+                  >
                     <div className="flex gap-2 justify-end">
                       {(currentUser?.type === "Admin" ||
                         currentUser?.type === "SuperAdmin") && (

@@ -77,6 +77,11 @@ export const translations = {
     placeholderInvoice: "INV-00000",
     placeholderUsername: "Elige un usuario",
     placeholderPassword: "••••••••",
+    today: "Hoy",
+    day: "día",
+    days: "días",
+    manual: "Manual",
+    serie: "Serie",
   },
   en: {
     // General
@@ -156,5 +161,10 @@ export const translations = {
     placeholderInvoice: "INV-00000",
     placeholderUsername: "Choose a username",
     placeholderPassword: "••••••••",
+    today: "Today",
+    day: "day",
+    days: "days",
+    manual: "Manual",
+    serie: "Serie",
   },
 };

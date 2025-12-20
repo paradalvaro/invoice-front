@@ -5,14 +5,37 @@ import { useLanguage } from "../context/LanguageContext";
 
 const InvoiceForm = () => {
   const { t } = useLanguage();
+
+  // Helper to combine a YYYY-MM-DD string with the current local time
+  const combineDateWithCurrentTime = (dateStr) => {
+    if (!dateStr) return null;
+    const [year, month, day] = dateStr.split("-").map(Number);
+    const now = new Date();
+    // Create new date using parts + current time
+    const combined = new Date(
+      year,
+      month - 1,
+      day,
+      now.getHours() - 4, //CARACAS TIME
+      now.getMinutes(),
+      now.getSeconds()
+    );
+    return combined.toISOString();
+  };
+
+  const getTodayStr = () => new Date().toISOString().split("T")[0];
+
   const [formData, setFormData] = useState({
+    serie: "A2025",
     invoiceNumber: "",
     clientName: "",
     totalAmount: "",
     status: "Pending",
-    date: "",
-    dueDate: "",
+    date: getTodayStr(),
+    dueDate: getTodayStr(),
   });
+  const [initialInvoiceData, setInitialInvoiceData] = useState(null);
+  const [paymentTerm, setPaymentTerm] = useState("custom");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
@@ -35,6 +58,26 @@ const InvoiceForm = () => {
         date: formattedDate,
         dueDate: formattedDueDate,
       });
+      setInitialInvoiceData({
+        ...invoice,
+        date: formattedDate,
+        dueDate: formattedDueDate,
+      });
+
+      // Calculate term
+      if (formattedDate && formattedDueDate) {
+        const start = new Date(formattedDate);
+        const end = new Date(formattedDueDate);
+        const diffTime = Math.abs(end - start);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        const standardTerms = ["0", "1", "7", "15", "30", "45", "60"];
+        if (standardTerms.includes(String(diffDays))) {
+          setPaymentTerm(String(diffDays));
+        } else {
+          setPaymentTerm("custom");
+        }
+      }
     } catch (err) {
       console.error("Error fetching invoice:", err);
       setError(t("error"));
@@ -48,19 +91,85 @@ const InvoiceForm = () => {
       fetchInvoice();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, isEditMode]); // Adding fetchInvoice might require wrapping it in useCallback, disabling for now to be safe with loop risks
+  }, [id, isEditMode]);
+
+  // Auto-fetch next number when series changes (only for new invoices or if needed)
+  useEffect(() => {
+    const fetchNextNumber = async () => {
+      // Logic:
+      // 1. New Mode: Always fetch when series changes.
+      // 2. Edit Mode: Fetch ONLY if series is different from initial.
+      // 3. Edit Mode (Revert): If series matches initial, restore initial number.
+
+      if (!formData.serie) return;
+
+      const isSeriesChanged =
+        isEditMode &&
+        initialInvoiceData &&
+        formData.serie !== initialInvoiceData.serie;
+
+      if (!isEditMode || isSeriesChanged) {
+        try {
+          const response = await api.get(
+            `/invoices/next-number?serie=${formData.serie}`
+          );
+          if (response.data.nextNumber) {
+            setFormData((prev) => ({
+              ...prev,
+              invoiceNumber: response.data.nextNumber,
+            }));
+          }
+        } catch (err) {
+          console.error("Error fetching next number:", err);
+        }
+      } else if (
+        isEditMode &&
+        initialInvoiceData &&
+        formData.serie === initialInvoiceData.serie
+      ) {
+        setFormData((prev) => ({
+          ...prev,
+          invoiceNumber: initialInvoiceData.invoiceNumber,
+        }));
+      }
+    };
+    fetchNextNumber();
+  }, [formData.serie, isEditMode, initialInvoiceData]);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  const handleTermChange = (e) => {
+    const term = e.target.value;
+    setPaymentTerm(term);
+
+    if (term !== "custom") {
+      const days = parseInt(term);
+      const baseDate = formData.date ? new Date(formData.date) : new Date();
+      const dueDate = new Date(baseDate);
+      dueDate.setDate(dueDate.getDate() + days);
+
+      setFormData((prev) => ({
+        ...prev,
+        dueDate: dueDate.toISOString().split("T")[0],
+      }));
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      const payload = {
+        ...formData,
+        date: combineDateWithCurrentTime(formData.date || getTodayStr()),
+        dueDate: combineDateWithCurrentTime(formData.dueDate),
+      };
+
       if (isEditMode) {
-        await api.put(`/invoices/${id}`, formData);
+        await api.put(`/invoices/${id}`, payload);
       } else {
-        await api.post("/invoices", formData);
+        await api.post("/invoices", payload);
       }
       navigate("/invoices");
     } catch (err) {
@@ -138,7 +247,70 @@ const InvoiceForm = () => {
               />
             </div>
 
-            <div>
+            <div
+              style={{
+                gridColumn: "1 / -1",
+                display: "grid",
+                gridTemplateColumns: "1fr 2fr",
+                gap: "1.5rem",
+              }}
+            >
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "0.5rem",
+                    fontWeight: "500",
+                    color: "var(--color-text-secondary)",
+                  }}
+                >
+                  {t("serie")}
+                </label>
+                <select
+                  name="serie"
+                  value={formData.serie}
+                  onChange={handleChange}
+                  style={{
+                    width: "100%",
+                    padding: "0.5rem",
+                    borderRadius: "0.375rem",
+                    border: "1px solid #cbd5e1",
+                  }}
+                >
+                  <option value="A2025">A2025</option>
+                  <option value="A2026">A2026</option>
+                </select>
+              </div>
+
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "0.5rem",
+                    fontWeight: "500",
+                    color: "var(--color-text-secondary)",
+                  }}
+                >
+                  {t("invoiceNumber")}
+                </label>
+                <input
+                  type="text"
+                  name="invoiceNumber"
+                  value={formData.invoiceNumber}
+                  onChange={handleChange}
+                  required
+                  readOnly
+                  placeholder={t("placeholderInvoice")}
+                  style={{
+                    width: "100%",
+                    backgroundColor: "#f3f4f6",
+                    cursor: "not-allowed",
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* <div>
               <label
                 style={{
                   display: "block",
@@ -159,7 +331,7 @@ const InvoiceForm = () => {
               />
             </div>
 
-            <div>
+            {/* <div>
               <label
                 style={{
                   display: "block",
@@ -178,7 +350,7 @@ const InvoiceForm = () => {
                 required
               />
             </div>
-
+              */}
             <div>
               <label
                 style={{
@@ -188,15 +360,41 @@ const InvoiceForm = () => {
                   color: "var(--color-text-secondary)",
                 }}
               >
-                {t("dueDate")}
+                {t("dueDate") || "Due Date"}
               </label>
-              <input
-                type="date"
-                name="dueDate"
-                value={formData.dueDate}
-                onChange={handleChange}
-                required
-              />
+              <div style={{ display: "flex", gap: "0.5rem" }}>
+                <select
+                  value={paymentTerm}
+                  onChange={handleTermChange}
+                  style={{
+                    padding: "0.5rem",
+                    borderRadius: "0.375rem",
+                    border: "1px solid #cbd5e1",
+                    backgroundColor: "white",
+                  }}
+                >
+                  <option value="0">{t("today") || "Today"}</option>
+                  <option value="1">1 {t("day") || "day"}</option>
+                  <option value="7">7 {t("days") || "days"}</option>
+                  <option value="15">15 {t("days") || "days"}</option>
+                  <option value="30">30 {t("days") || "days"}</option>
+                  <option value="45">45 {t("days") || "days"}</option>
+                  <option value="60">60 {t("days") || "days"}</option>
+                  <option value="custom">{t("manual") || "Manual"}</option>
+                </select>
+                <input
+                  type="date"
+                  name="dueDate"
+                  value={formData.dueDate}
+                  onChange={(e) => {
+                    handleChange(e);
+                    setPaymentTerm("custom");
+                  }}
+                  required
+                  style={{ flex: 1 }}
+                  readOnly={paymentTerm !== "custom"}
+                />
+              </div>
             </div>
 
             <div>

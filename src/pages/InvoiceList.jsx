@@ -13,6 +13,10 @@ const InvoiceList = () => {
     totalPages: 1,
     totalItems: 0,
   });
+  const [sortBy, setSortBy] = useState("date");
+  const [sortOrder, setSortOrder] = useState("desc");
+  const [search, setSearch] = useState("");
+  const [searchField, setSearchField] = useState("clientName");
   const { user: currentUser } = useAuth();
   const { t } = useLanguage();
   const [isLoading, setIsLoading] = useState(true);
@@ -24,7 +28,7 @@ const InvoiceList = () => {
     setError(null);
     try {
       const response = await api.get(
-        `/invoices?page=${pagination.currentPage}&limit=10`
+        `/invoices?page=${pagination.currentPage}&limit=10&sortBy=${sortBy}&order=${sortOrder}&search=${search}&searchField=${searchField}`
       );
       if (response.data.data) {
         setInvoices(response.data.data);
@@ -48,7 +52,45 @@ const InvoiceList = () => {
   useEffect(() => {
     fetchInvoices();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pagination.currentPage]);
+  }, [pagination.currentPage, sortBy, sortOrder, search, searchField]);
+
+  const handleSort = (field) => {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortBy(field);
+      setSortOrder("asc");
+    }
+    setPagination((prev) => ({ ...prev, currentPage: 1 })); // Reset to first page
+  };
+
+  const SortIcon = ({ field }) => {
+    if (sortBy !== field)
+      return (
+        <span
+          style={{
+            marginLeft: "0.25rem",
+            color: "#94a3b8",
+            fontSize: "0.8rem",
+          }}
+        >
+          ↕
+        </span>
+      );
+    return sortOrder === "asc" ? (
+      <span
+        style={{ marginLeft: "0.25rem", color: "#6366f1", fontSize: "0.8rem" }}
+      >
+        ↑
+      </span>
+    ) : (
+      <span
+        style={{ marginLeft: "0.25rem", color: "#6366f1", fontSize: "0.8rem" }}
+      >
+        ↓
+      </span>
+    );
+  };
 
   const handleDelete = async (id) => {
     if (window.confirm(t("confirmDelete"))) {
@@ -92,6 +134,99 @@ const InvoiceList = () => {
           </span>
         </div>
         <div className="flex gap-2">
+          <select
+            value={searchField}
+            onChange={(e) => {
+              setSearchField(e.target.value);
+              setSearch(""); // Reset search when field changes
+              setPagination((prev) => ({ ...prev, currentPage: 1 }));
+            }}
+            style={{
+              padding: "0.5rem",
+              border: "1px solid var(--color-border)",
+              borderRadius: "4px",
+              fontSize: "0.9rem",
+              backgroundColor: "white",
+            }}
+          >
+            <option value="clientName">{t("clientName")}</option>
+            <option value="invoiceNumber">{t("invoiceNumber")}</option>
+            <option value="status">{t("status")}</option>
+            <option value="date">{t("date")}</option>
+            <option value="dueDate">{t("dueDate")}</option>
+            <option value="serie">{t("serie")}</option>
+          </select>
+          {searchField === "status" ? (
+            <select
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPagination((prev) => ({ ...prev, currentPage: 1 }));
+              }}
+              style={{
+                padding: "0.5rem",
+                border: "1px solid var(--color-border)",
+                borderRadius: "4px",
+                fontSize: "0.9rem",
+                width: "200px",
+              }}
+            >
+              <option value="">{t("all") || "All"}</option>
+              <option value="Draft">{t("statusDraft")}</option>
+              <option value="Pending">{t("statusPending")}</option>
+              <option value="Paid">{t("statusPaid")}</option>
+            </select>
+          ) : searchField === "serie" ? (
+            <select
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPagination((prev) => ({ ...prev, currentPage: 1 }));
+              }}
+              style={{
+                padding: "0.5rem",
+                border: "1px solid var(--color-border)",
+                borderRadius: "4px",
+                fontSize: "0.9rem",
+                width: "200px",
+              }}
+            >
+              <option value="">{t("all") || "All"}</option>
+              <option value="A2025">A2025</option>
+              <option value="A2026">A2026</option>
+            </select>
+          ) : searchField === "date" || searchField === "dueDate" ? (
+            <input
+              type="date"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPagination((prev) => ({ ...prev, currentPage: 1 }));
+              }}
+              style={{
+                padding: "0.5rem",
+                border: "1px solid var(--color-border)",
+                borderRadius: "4px",
+                fontSize: "0.9rem",
+              }}
+            />
+          ) : (
+            <input
+              type="text"
+              placeholder={t("searchPlaceholder") || "Search..."}
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPagination((prev) => ({ ...prev, currentPage: 1 }));
+              }}
+              style={{
+                padding: "0.5rem",
+                border: "1px solid var(--color-border)",
+                borderRadius: "4px",
+                fontSize: "0.9rem",
+              }}
+            />
+          )}
           <Link to="/invoices/new" className="btn btn-primary">
             + {t("new")}
           </Link>
@@ -120,10 +255,13 @@ const InvoiceList = () => {
           backgroundColor: "white",
           borderRadius: "8px",
           boxShadow: "var(--shadow-sm)",
-          overflow: "hidden",
+          overflowX: "auto",
         }}
       >
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <table
+          className="responsive-table"
+          style={{ width: "100%", borderCollapse: "collapse" }}
+        >
           <thead>
             <tr
               style={{
@@ -144,6 +282,7 @@ const InvoiceList = () => {
                 <input type="checkbox" />
               </th>
               <th
+                onClick={() => handleSort("date")}
                 style={{
                   padding: "1rem",
                   textAlign: "left",
@@ -151,9 +290,13 @@ const InvoiceList = () => {
                   fontWeight: "600",
                   color: "#64748b",
                   textTransform: "uppercase",
+                  cursor: "pointer",
+                  userSelect: "none",
                 }}
               >
-                {t("date")}
+                <div className="flex items-center">
+                  {t("date")} <SortIcon field="date" />
+                </div>
               </th>
               <th
                 style={{
@@ -165,9 +308,10 @@ const InvoiceList = () => {
                   textTransform: "uppercase",
                 }}
               >
-                {t("invoiceNumber")}
+                {t("serie")}
               </th>
               <th
+                onClick={() => handleSort("invoiceNumber")}
                 style={{
                   padding: "1rem",
                   textAlign: "left",
@@ -175,9 +319,30 @@ const InvoiceList = () => {
                   fontWeight: "600",
                   color: "#64748b",
                   textTransform: "uppercase",
+                  cursor: "pointer",
+                  userSelect: "none",
                 }}
               >
-                {t("clientName")}
+                <div className="flex items-center">
+                  {t("invoiceNumber")} <SortIcon field="invoiceNumber" />
+                </div>
+              </th>
+              <th
+                onClick={() => handleSort("clientName")}
+                style={{
+                  padding: "1rem",
+                  textAlign: "left",
+                  fontSize: "0.75rem",
+                  fontWeight: "600",
+                  color: "#64748b",
+                  textTransform: "uppercase",
+                  cursor: "pointer",
+                  userSelect: "none",
+                }}
+              >
+                <div className="flex items-center">
+                  {t("clientName")} <SortIcon field="clientName" />
+                </div>
               </th>
               <th
                 style={{
@@ -192,6 +357,7 @@ const InvoiceList = () => {
                 {t("owner")}
               </th>
               <th
+                onClick={() => handleSort("status")}
                 style={{
                   padding: "1rem",
                   textAlign: "left",
@@ -199,11 +365,16 @@ const InvoiceList = () => {
                   fontWeight: "600",
                   color: "#64748b",
                   textTransform: "uppercase",
+                  cursor: "pointer",
+                  userSelect: "none",
                 }}
               >
-                {t("status")}
+                <div className="flex items-center">
+                  {t("status")} <SortIcon field="status" />
+                </div>
               </th>
               <th
+                onClick={() => handleSort("dueDate")}
                 style={{
                   padding: "1rem",
                   textAlign: "left",
@@ -211,26 +382,35 @@ const InvoiceList = () => {
                   fontWeight: "600",
                   color: "#64748b",
                   textTransform: "uppercase",
+                  cursor: "pointer",
+                  userSelect: "none",
                 }}
               >
-                {t("dueDate")}
+                <div className="flex items-center">
+                  {t("dueDate")} <SortIcon field="dueDate" />
+                </div>
               </th>
               <th
+                onClick={() => handleSort("totalAmount")}
                 style={{
                   padding: "1rem",
-                  textAlign: "right",
+                  textAlign: "left",
                   fontSize: "0.75rem",
                   fontWeight: "600",
                   color: "#64748b",
                   textTransform: "uppercase",
+                  cursor: "pointer",
+                  userSelect: "none",
                 }}
               >
-                {t("totalAmount")}
+                <div className="flex items-center justify-end">
+                  {t("totalAmount")} <SortIcon field="totalAmount" />
+                </div>
               </th>
               <th
                 style={{
                   padding: "1rem",
-                  textAlign: "right",
+                  textAlign: "left",
                   fontSize: "0.75rem",
                   fontWeight: "600",
                   color: "#64748b",
@@ -242,7 +422,7 @@ const InvoiceList = () => {
               <th
                 style={{
                   padding: "1rem",
-                  textAlign: "right",
+                  textAlign: "left",
                   fontSize: "0.75rem",
                   fontWeight: "600",
                   color: "#64748b",
@@ -274,13 +454,32 @@ const InvoiceList = () => {
                   style={{ borderBottom: "1px solid var(--color-border)" }}
                   className="hover:bg-gray-50"
                 >
-                  <td style={{ padding: "1rem" }}>
+                  <td style={{ padding: "1rem" }} data-label="">
                     <input type="checkbox" />
                   </td>
-                  <td style={{ padding: "1rem", fontSize: "0.9rem" }}>
-                    {new Date(invoice.date).toLocaleDateString()}
+                  <td
+                    style={{ padding: "1rem", fontSize: "0.9rem" }}
+                    data-label={t("date")}
+                  >
+                    {
+                      /*new Date(invoice.date).toLocaleDateString(undefined, {
+                      timeZone: "America/Caracas",
+                    })*/
+                      new Date(invoice.date).toLocaleDateString("es-ES", {
+                        timeZone: "America/Caracas",
+                      })
+                    }
                   </td>
-                  <td style={{ padding: "1rem", fontSize: "0.9rem" }}>
+                  <td
+                    style={{ padding: "1rem", fontSize: "0.9rem" }}
+                    data-label={t("serie")}
+                  >
+                    {invoice.serie || "-"}
+                  </td>
+                  <td
+                    style={{ padding: "1rem", fontSize: "0.9rem" }}
+                    data-label={t("invoiceNumber")}
+                  >
                     <Link
                       to={`/invoices/${invoice._id}/edit`}
                       style={{
@@ -297,6 +496,7 @@ const InvoiceList = () => {
                       fontSize: "0.9rem",
                       fontWeight: "500",
                     }}
+                    data-label={t("clientName")}
                   >
                     {invoice.clientName}
                   </td>
@@ -306,10 +506,11 @@ const InvoiceList = () => {
                       fontSize: "0.9rem",
                       fontWeight: "500",
                     }}
+                    data-label={t("owner")}
                   >
                     {invoice.userId?.username || "N/A"}
                   </td>
-                  <td style={{ padding: "1rem" }}>
+                  <td style={{ padding: "1rem" }} data-label={t("status")}>
                     <span
                       style={{
                         fontSize: "0.75rem",
@@ -338,10 +539,28 @@ const InvoiceList = () => {
                         : t("statusPending")}
                     </span>
                   </td>
-                  <td style={{ padding: "1rem", fontSize: "0.9rem" }}>
-                    {invoice.dueDate
-                      ? new Date(invoice.dueDate).toLocaleDateString()
-                      : "-"}
+                  <td
+                    style={{ padding: "1rem", fontSize: "0.9rem" }}
+                    data-label={t("dueDate")}
+                  >
+                    {
+                      /*invoice.dueDate
+                      ? new Date(invoice.dueDate).toLocaleDateString(
+                          undefined,
+                          {
+                            timeZone: "America/Caracas",
+                          }
+                        )
+                      : "-"*/
+                      invoice.dueDate
+                        ? new Date(invoice.dueDate).toLocaleDateString(
+                            "es-ES",
+                            {
+                              timeZone: "America/Caracas",
+                            }
+                          )
+                        : "-"
+                    }
                   </td>
                   <td
                     style={{
@@ -350,6 +569,7 @@ const InvoiceList = () => {
                       fontSize: "0.9rem",
                       fontWeight: "600",
                     }}
+                    data-label={t("totalAmount")}
                   >
                     €{invoice.totalAmount}
                   </td>
@@ -360,10 +580,14 @@ const InvoiceList = () => {
                       fontSize: "0.9rem",
                       fontWeight: "600",
                     }}
+                    data-label={t("balanceDue")}
                   >
                     €{invoice.status === "Paid" ? "0.00" : invoice.totalAmount}
                   </td>
-                  <td style={{ padding: "1rem", textAlign: "right" }}>
+                  <td
+                    style={{ padding: "1rem", textAlign: "right" }}
+                    data-label={t("actions")}
+                  >
                     <div className="flex gap-2 justify-end">
                       <button
                         onClick={() => {
