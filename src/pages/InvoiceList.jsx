@@ -4,6 +4,8 @@ import api from "../api/axios";
 import useAuth from "../hooks/useAuth";
 import { useLanguage } from "../context/LanguageContext";
 
+import { useNotification } from "../context/NotificationContext";
+
 const baseURL = import.meta.env.VITE_SERVER_URL;
 
 const InvoiceList = () => {
@@ -19,6 +21,7 @@ const InvoiceList = () => {
   const [searchField, setSearchField] = useState("clientName");
   const { user: currentUser } = useAuth();
   const { t } = useLanguage();
+  const { showNotification } = useNotification();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   // const { logout } = useAuth();
@@ -92,6 +95,24 @@ const InvoiceList = () => {
     );
   };
 
+  const handleSendEmail = async (id) => {
+    if (window.confirm(t("confirmSendEmail"))) {
+      try {
+        await api.get(`/invoices/${id}/sendEmail`);
+        showNotification(
+          t("emailSentSuccess") || "Invoice sent by email",
+          "success"
+        );
+      } catch (err) {
+        console.error("Error sending invoice:", err);
+        showNotification(
+          t("emailSentError") || "Error sending invoice",
+          "error"
+        );
+      }
+    }
+  };
+
   const handleDelete = async (id) => {
     if (window.confirm(t("confirmDelete"))) {
       try {
@@ -129,9 +150,9 @@ const InvoiceList = () => {
               {t("allInvoices")}
             </h2>
           )}
-          <span style={{ color: "var(--color-primary)", cursor: "pointer" }}>
+          {/*<span style={{ color: "var(--color-primary)", cursor: "pointer" }}>
             ⌄
-          </span>
+          </span>*/}
         </div>
         <div className="flex gap-2">
           <select
@@ -150,11 +171,13 @@ const InvoiceList = () => {
             }}
           >
             <option value="clientName">{t("clientName")}</option>
+            <option value="clientNIF">{t("clientNIF")}</option>
             <option value="invoiceNumber">{t("invoiceNumber")}</option>
             <option value="status">{t("status")}</option>
             <option value="date">{t("date")}</option>
             <option value="dueDate">{t("dueDate")}</option>
             <option value="serie">{t("serie")}</option>
+            <option value="type">{t("type") || "Type"}</option>
           </select>
           {searchField === "status" ? (
             <select
@@ -194,6 +217,29 @@ const InvoiceList = () => {
               <option value="">{t("all") || "All"}</option>
               <option value="A2025">A2025</option>
               <option value="A2026">A2026</option>
+              <option value="R2025">R2025</option>
+              <option value="R2026">R2026</option>
+            </select>
+          ) : searchField === "type" ? (
+            <select
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPagination((prev) => ({ ...prev, currentPage: 1 }));
+              }}
+              style={{
+                padding: "0.5rem",
+                border: "1px solid var(--color-border)",
+                borderRadius: "4px",
+                fontSize: "0.9rem",
+                width: "200px",
+              }}
+            >
+              <option value="">{t("all")}</option>
+              <option value="F1">F1</option>
+              <option value="F2">F2</option>
+              <option value="R1">R1</option>
+              <option value="R4">R4</option>
             </select>
           ) : searchField === "date" || searchField === "dueDate" ? (
             <input
@@ -230,9 +276,9 @@ const InvoiceList = () => {
           <Link to="/invoices/new" className="btn btn-primary">
             + {t("new")}
           </Link>
-          <button className="btn btn-secondary" style={{ padding: "0.5rem" }}>
+          {/*<button className="btn btn-secondary" style={{ padding: "0.5rem" }}>
             ...
-          </button>
+          </button>*/}
         </div>
       </div>
 
@@ -282,23 +328,6 @@ const InvoiceList = () => {
                 <input type="checkbox" />
               </th>
               <th
-                onClick={() => handleSort("date")}
-                style={{
-                  padding: "1rem",
-                  textAlign: "left",
-                  fontSize: "0.75rem",
-                  fontWeight: "600",
-                  color: "#64748b",
-                  textTransform: "uppercase",
-                  cursor: "pointer",
-                  userSelect: "none",
-                }}
-              >
-                <div className="flex items-center">
-                  {t("date")} <SortIcon field="date" />
-                </div>
-              </th>
-              <th
                 style={{
                   padding: "1rem",
                   textAlign: "left",
@@ -328,6 +357,18 @@ const InvoiceList = () => {
                 </div>
               </th>
               <th
+                style={{
+                  padding: "1rem",
+                  textAlign: "left",
+                  fontSize: "0.75rem",
+                  fontWeight: "600",
+                  color: "#64748b",
+                  textTransform: "uppercase",
+                }}
+              >
+                {t("type") || "Type"}
+              </th>
+              <th
                 onClick={() => handleSort("clientName")}
                 style={{
                   padding: "1rem",
@@ -342,6 +383,23 @@ const InvoiceList = () => {
               >
                 <div className="flex items-center">
                   {t("clientName")} <SortIcon field="clientName" />
+                </div>
+              </th>
+              <th
+                onClick={() => handleSort("clientNIF")}
+                style={{
+                  padding: "1rem",
+                  textAlign: "left",
+                  fontSize: "0.75rem",
+                  fontWeight: "600",
+                  color: "#64748b",
+                  textTransform: "uppercase",
+                  cursor: "pointer",
+                  userSelect: "none",
+                }}
+              >
+                <div className="flex items-center">
+                  {t("clientNIF")} <SortIcon field="clientNIF" />
                 </div>
               </th>
               <th
@@ -374,23 +432,6 @@ const InvoiceList = () => {
                 </div>
               </th>
               <th
-                onClick={() => handleSort("dueDate")}
-                style={{
-                  padding: "1rem",
-                  textAlign: "left",
-                  fontSize: "0.75rem",
-                  fontWeight: "600",
-                  color: "#64748b",
-                  textTransform: "uppercase",
-                  cursor: "pointer",
-                  userSelect: "none",
-                }}
-              >
-                <div className="flex items-center">
-                  {t("dueDate")} <SortIcon field="dueDate" />
-                </div>
-              </th>
-              <th
                 onClick={() => handleSort("totalAmount")}
                 style={{
                   padding: "1rem",
@@ -418,6 +459,40 @@ const InvoiceList = () => {
                 }}
               >
                 {t("balanceDue")}
+              </th>
+              <th
+                onClick={() => handleSort("date")}
+                style={{
+                  padding: "1rem",
+                  textAlign: "left",
+                  fontSize: "0.75rem",
+                  fontWeight: "600",
+                  color: "#64748b",
+                  textTransform: "uppercase",
+                  cursor: "pointer",
+                  userSelect: "none",
+                }}
+              >
+                <div className="flex items-center">
+                  {t("date")} <SortIcon field="date" />
+                </div>
+              </th>
+              <th
+                onClick={() => handleSort("dueDate")}
+                style={{
+                  padding: "1rem",
+                  textAlign: "left",
+                  fontSize: "0.75rem",
+                  fontWeight: "600",
+                  color: "#64748b",
+                  textTransform: "uppercase",
+                  cursor: "pointer",
+                  userSelect: "none",
+                }}
+              >
+                <div className="flex items-center">
+                  {t("dueDate")} <SortIcon field="dueDate" />
+                </div>
               </th>
               <th
                 style={{
@@ -458,26 +533,21 @@ const InvoiceList = () => {
                     <input type="checkbox" />
                   </td>
                   <td
-                    style={{ padding: "1rem", fontSize: "0.9rem" }}
-                    data-label={t("date")}
-                  >
-                    {
-                      /*new Date(invoice.date).toLocaleDateString(undefined, {
-                      timeZone: "America/Caracas",
-                    })*/
-                      new Date(invoice.date).toLocaleDateString("es-ES", {
-                        timeZone: "America/Caracas",
-                      })
-                    }
-                  </td>
-                  <td
-                    style={{ padding: "1rem", fontSize: "0.9rem" }}
+                    style={{
+                      padding: "1rem",
+                      fontSize: "0.9rem",
+                      textAlign: "center",
+                    }}
                     data-label={t("serie")}
                   >
                     {invoice.serie || "-"}
                   </td>
                   <td
-                    style={{ padding: "1rem", fontSize: "0.9rem" }}
+                    style={{
+                      padding: "1rem",
+                      fontSize: "0.9rem",
+                      textAlign: "center",
+                    }}
                     data-label={t("invoiceNumber")}
                   >
                     <Link
@@ -494,11 +564,30 @@ const InvoiceList = () => {
                     style={{
                       padding: "1rem",
                       fontSize: "0.9rem",
+                      textAlign: "center",
+                    }}
+                    data-label={t("type") || "Type"}
+                  >
+                    {invoice.type || "-"}
+                  </td>
+                  <td
+                    style={{
+                      padding: "1rem",
+                      fontSize: "0.9rem",
                       fontWeight: "500",
                     }}
                     data-label={t("clientName")}
                   >
                     {invoice.clientName}
+                  </td>
+                  <td
+                    style={{
+                      padding: "1rem",
+                      fontSize: "0.9rem",
+                    }}
+                    data-label={t("clientNIF")}
+                  >
+                    {invoice.clientNIF}
                   </td>
                   <td
                     style={{
@@ -540,6 +629,44 @@ const InvoiceList = () => {
                     </span>
                   </td>
                   <td
+                    style={{
+                      padding: "1rem",
+                      textAlign: "right",
+                      fontSize: "0.9rem",
+                      fontWeight: "600",
+                    }}
+                    data-label={t("totalAmount")}
+                  >
+                    €{invoice.totalAmount.toFixed(2)}
+                  </td>
+                  <td
+                    style={{
+                      padding: "1rem",
+                      textAlign: "right",
+                      fontSize: "0.9rem",
+                      fontWeight: "600",
+                    }}
+                    data-label={t("balanceDue")}
+                  >
+                    €
+                    {invoice.status === "Paid"
+                      ? "0.00"
+                      : invoice.totalAmount.toFixed(2)}
+                  </td>
+                  <td
+                    style={{ padding: "1rem", fontSize: "0.9rem" }}
+                    data-label={t("date")}
+                  >
+                    {
+                      /*new Date(invoice.date).toLocaleDateString(undefined, {
+                      timeZone: "America/Caracas",
+                    })*/
+                      new Date(invoice.date).toLocaleDateString("es-ES", {
+                        timeZone: "America/Caracas",
+                      })
+                    }
+                  </td>
+                  <td
                     style={{ padding: "1rem", fontSize: "0.9rem" }}
                     data-label={t("dueDate")}
                   >
@@ -561,28 +688,6 @@ const InvoiceList = () => {
                           )
                         : "-"
                     }
-                  </td>
-                  <td
-                    style={{
-                      padding: "1rem",
-                      textAlign: "right",
-                      fontSize: "0.9rem",
-                      fontWeight: "600",
-                    }}
-                    data-label={t("totalAmount")}
-                  >
-                    €{invoice.totalAmount}
-                  </td>
-                  <td
-                    style={{
-                      padding: "1rem",
-                      textAlign: "right",
-                      fontSize: "0.9rem",
-                      fontWeight: "600",
-                    }}
-                    data-label={t("balanceDue")}
-                  >
-                    €{invoice.status === "Paid" ? "0.00" : invoice.totalAmount}
                   </td>
                   <td
                     style={{ padding: "1rem", textAlign: "right" }}
@@ -622,10 +727,67 @@ const InvoiceList = () => {
                           <path d="M4.603 14.087a.81.81 0 0 1-.438-.42c-.195-.388-.13-.771.08-1.177.313-.606.746-1.125 1.258-1.474a.846.846 0 0 1 .493-.162c.31 0 .637.228.853.51.272.355.244.82-.046 1.135-.386.415-.89.65-1.446.738a1.59 1.59 0 0 1-.754-.15zm1.517-5.01c-.13-.186-.396-.346-.685-.346-.388 0-.671.216-.838.452-.164.23-.217.58-.09.914.184.484.58.746 1.056.746.402 0 .699-.186.887-.406.19-.22.257-.542.127-.893a.96.96 0 0 0-.457-.467zM10.87 9.873c-.092-.22-.304-.265-.487-.22a1.72 1.72 0 0 0-.82.34l-.403.267c-.206.142-.435.31-.62.482-.127.118-.328.32-.477.534-.145.21-.247.45-.3.687-.075.334.02.668.225.86.196.182.46.225.708.19.467-.066.903-.309 1.272-.647.367-.336.657-.75.787-1.175.068-.22.115-.466.115-.658 0-.17-.046-.35-.115-.53l-.085-.13zm-.793 1.956c-.206 0-.39-.115-.503-.284-.132-.196-.062-.516.143-.807.164-.23.41-.453.69-.613.31-.176.65-.24 1.015-.24.28 0 .546.046.787.14a3.52 3.52 0 0 1 .634.346c.143.102.26.22.316.347.054.12.062.247.02.375-.065.196-.28.336-.513.336a1.18 1.18 0 0 1-.555-.17l-.546-.307c-.426-.24-.764-.534-.954-.805L10 11.455a4.01 4.01 0 0 1-.685.29c-.21.066-.37.085-.453.085z" />
                         </svg>
                       </button>
+                      <button
+                        onClick={() => handleSendEmail(invoice._id)}
+                        style={{
+                          padding: "0.5rem",
+                          fontSize: "0.8rem",
+                          backgroundColor: "var(--color-sidebar-bg)",
+                          border: "1px solid var(--color-border)",
+                          color: "var(--color-text-secondary)",
+                          borderRadius: "4px",
+                          cursor: "pointer",
+                          textDecoration: "none",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                        title={t("send")}
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="16"
+                          height="16"
+                          fill="currentColor"
+                          viewBox="0 0 16 16"
+                        >
+                          <path d="M0 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V4Zm2-1a1 1 0 0 0-1 1v.217l7 4.2 7-4.2V4a1 1 0 0 0-1-1H2Zm13 2.383-4.708 2.825L15 11.105V5.383Zm-.034 6.876-5.64-3.471L8 9.583l-1.326-.795-5.64 3.47A1 1 0 0 0 2 13h12a1 1 0 0 0 .966-.741ZM1 11.105l4.708-2.897L1 5.383v5.722Z" />
+                        </svg>
+                      </button>
 
                       {(currentUser?.type === "Admin" ||
                         currentUser?.type === "SuperAdmin") && (
                         <>
+                          <Link
+                            to={`/invoices/${invoice._id}/rectify`}
+                            style={{
+                              padding: "0.5rem",
+                              fontSize: "0.8rem",
+                              backgroundColor: "var(--color-sidebar-bg)",
+                              border: "1px solid var(--color-border)",
+                              color: "var(--color-text-secondary)",
+                              borderRadius: "4px",
+                              textDecoration: "none",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
+                            title={t("rectify")}
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="16"
+                              height="16"
+                              fill="currentColor"
+                              viewBox="0 0 16 16"
+                            >
+                              <path
+                                fillRule="evenodd"
+                                d="M8 3a5 5 0 1 1-4.546 2.914.5.5 0 0 0-.908-.417A6 6 0 1 0 8 2v1z"
+                              />
+                              <path d="M8 4.466V.534a.25.25 0 0 0-.41-.192L5.23 2.308a.25.25 0 0 0 0 .384l2.36 1.966a.25.25 0 0 0 .41-.192z" />
+                            </svg>
+                          </Link>
                           <Link
                             to={`/invoices/${invoice._id}/edit`}
                             style={{

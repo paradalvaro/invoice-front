@@ -64,9 +64,9 @@ const Header = () => {
             gap: "0.5rem",
           }}
         >
-          <span style={{ fontSize: "1.5rem" }}>♾️</span> Books
+          <span style={{ fontSize: "1.5rem" }}>♾️</span> Invoices
         </div>
-        <div style={{ marginLeft: "2rem", position: "relative" }}>
+        {/*<div style={{ marginLeft: "2rem", position: "relative" }}>
           <input
             type="text"
             placeholder={t("searchPlaceholder")}
@@ -80,16 +80,16 @@ const Header = () => {
               fontSize: "0.9rem",
             }}
           />
-        </div>
+        </div> */}
       </div>
 
       <div className="flex items-center gap-4">
-        <button
+        {/* <button
           className="btn btn-primary"
           style={{ padding: "0.4rem 0.8rem" }}
         >
           +
-        </button>
+        </button> */}
 
         <div style={{ position: "relative" }} ref={dropdownRef}>
           <div

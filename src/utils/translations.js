@@ -9,12 +9,17 @@ export const translations = {
     delete: "Eliminar",
     edit: "Editar",
     new: "Nuevo",
+    send: "Enviar por Correo",
     actions: "Acciones",
+    rectify: "Rectificar",
+    rectifyInvoice: "Factura a Rectificar",
+    confirmSendEmail: "¿Estás seguro de que quieres enviar esta factura?",
     confirmDelete: "¿Estás seguro de que quieres eliminar este elemento?",
     downloadPDF: "Descargar PDF",
     previous: "Anterior",
     next: "Siguiente",
     pageOf: "Página {current} de {total}",
+    all: "Todos",
 
     // Auth & Profile
     login: "Iniciar Sesión",
@@ -46,6 +51,7 @@ export const translations = {
     editInvoice: "Editar Factura",
     invoiceNumber: "N.º de Factura",
     clientName: "Nombre del Cliente",
+    clientNIF: "NIF del Cliente",
     owner: "Creador",
     status: "Estado",
     dueDate: "Vencimiento",
@@ -59,6 +65,16 @@ export const translations = {
     statusPaid: "Pagado",
     createInvoice: "Crear Factura",
     updateInvoice: "Actualizar Factura",
+    services: "Servicios",
+    concept: "Concepto",
+    taxBase: "Base Imponible",
+    iva: "IVA (21%)",
+    addService: "Añadir Servicio",
+    removeService: "Eliminar",
+    quantity: "Cantidad",
+    rectifyReason: "Motivo de la Rectificación",
+    return:
+      "Devolución de mercancías o corrección de errores en el IVA u otros impuestos",
 
     // Users
     allUsers: "Todos los usuarios",
@@ -74,6 +90,7 @@ export const translations = {
 
     // Placeholders
     placeholderClient: "Ej. Empresa S.A.",
+    placeholderNIF: "Ej. 12345678A",
     placeholderInvoice: "INV-00000",
     placeholderUsername: "Elige un usuario",
     placeholderPassword: "••••••••",
@@ -82,6 +99,9 @@ export const translations = {
     days: "días",
     manual: "Manual",
     serie: "Serie",
+    type: "Tipo",
+    emailSentSuccess: "Factura enviada por correo con éxito",
+    emailSentError: "Error al enviar la factura por correo",
   },
   en: {
     // General
@@ -93,12 +113,17 @@ export const translations = {
     delete: "Delete",
     edit: "Edit",
     new: "New",
+    send: "Send Email",
     actions: "Actions",
+    rectify: "Rectify",
+    rectifyInvoice: "Invoice to Rectify",
+    confirmSendEmail: "Are you sure you want to send this invoice?",
     confirmDelete: "Are you sure you want to delete this item?",
     downloadPDF: "Download PDF",
     previous: "Previous",
     next: "Next",
     pageOf: "Page {current} of {total}",
+    all: "All",
 
     // Auth & Profile
     login: "Login",
@@ -130,6 +155,7 @@ export const translations = {
     editInvoice: "Edit Invoice",
     invoiceNumber: "Invoice #",
     clientName: "Client Name",
+    clientNIF: "Client NIF",
     owner: "Owner",
     status: "Status",
     dueDate: "Due Date",
@@ -143,6 +169,16 @@ export const translations = {
     statusPaid: "Paid",
     createInvoice: "Create Invoice",
     updateInvoice: "Update Invoice",
+    services: "Services",
+    concept: "Concept",
+    taxBase: "Tax Base",
+    iva: "VAT (21%)",
+    addService: "Add Service",
+    removeService: "Remove",
+    quantity: "Quantity",
+    rectifyReason: "Reason for Rectification",
+    return:
+      "Return of merchandise or correction of errors in VAT or other taxes",
 
     // Users
     allUsers: "All Users",
@@ -158,6 +194,7 @@ export const translations = {
 
     // Placeholders
     placeholderClient: "Ex. Company Inc.",
+    placeholderNIF: "Ex. 12345678A",
     placeholderInvoice: "INV-00000",
     placeholderUsername: "Choose a username",
     placeholderPassword: "••••••••",
@@ -166,5 +203,8 @@ export const translations = {
     days: "days",
     manual: "Manual",
     serie: "Serie",
+    type: "Type",
+    emailSentSuccess: "Invoice sent by email successfully",
+    emailSentError: "Error sending invoice by email",
   },
 };

@@ -9,26 +9,33 @@ import ProtectedRoute from "./components/ProtectedRoute";
 
 import Layout from "./components/Layout";
 
+import { NotificationProvider } from "./context/NotificationContext";
+import Toast from "./components/Toast";
+
 function App() {
   return (
-    <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
+    <NotificationProvider>
+      <Toast />
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
 
-      <Route element={<ProtectedRoute />}>
-        <Route element={<Layout />}>
-          <Route path="/invoices" element={<InvoiceList />} />
-          <Route path="/invoices/new" element={<InvoiceForm />} />
-          <Route path="/invoices/:id/edit" element={<InvoiceForm />} />
+        <Route element={<ProtectedRoute />}>
+          <Route element={<Layout />}>
+            <Route path="/invoices" element={<InvoiceList />} />
+            <Route path="/invoices/new" element={<InvoiceForm />} />
+            <Route path="/invoices/:id/edit" element={<InvoiceForm />} />
+            <Route path="/invoices/:id/rectify" element={<InvoiceForm />} />
 
-          <Route path="/users" element={<UserList />} />
-          <Route path="/users/new" element={<UserForm />} />
-          <Route path="/users/:id/edit" element={<UserForm />} />
+            <Route path="/users" element={<UserList />} />
+            <Route path="/users/new" element={<UserForm />} />
+            <Route path="/users/:id/edit" element={<UserForm />} />
+          </Route>
         </Route>
-      </Route>
 
-      <Route path="*" element={<Navigate to="/invoices" />} />
-    </Routes>
+        <Route path="*" element={<Navigate to="/invoices" />} />
+      </Routes>
+    </NotificationProvider>
   );
 }
 
