@@ -5,6 +5,8 @@ import InvoiceList from "./pages/InvoiceList";
 import InvoiceForm from "./pages/InvoiceForm";
 import UserList from "./pages/UserList";
 import UserForm from "./pages/UserForm";
+import ClientList from "./pages/ClientList";
+import ClientForm from "./pages/ClientForm";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 import Layout from "./components/Layout";
@@ -30,6 +32,10 @@ function App() {
             <Route path="/users" element={<UserList />} />
             <Route path="/users/new" element={<UserForm />} />
             <Route path="/users/:id/edit" element={<UserForm />} />
+
+            <Route path="/clients" element={<ClientList />} />
+            <Route path="/clients/new" element={<ClientForm />} />
+            <Route path="/clients/edit/:id" element={<ClientForm />} />
           </Route>
         </Route>
 

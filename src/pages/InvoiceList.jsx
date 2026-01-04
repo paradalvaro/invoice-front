@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import api from "../api/axios";
-import useAuth from "../hooks/useAuth";
+//import useAuth from "../hooks/useAuth";
 import { useLanguage } from "../context/LanguageContext";
 
 import { useNotification } from "../context/NotificationContext";
@@ -19,19 +19,20 @@ const InvoiceList = () => {
   const [sortOrder, setSortOrder] = useState("desc");
   const [search, setSearch] = useState("");
   const [searchField, setSearchField] = useState("clientName");
-  const { user: currentUser } = useAuth();
-  const { t } = useLanguage();
-  const { showNotification } = useNotification();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  // const { logout } = useAuth();
+  const [statusFilter, setStatusFilter] = useState("");
+  const [dueDateRangeFilter, setDueDateRangeFilter] = useState("");
+
+  const { t } = useLanguage();
+  const { showNotification } = useNotification();
 
   const fetchInvoices = async () => {
     setIsLoading(true);
     setError(null);
     try {
       const response = await api.get(
-        `/invoices?page=${pagination.currentPage}&limit=10&sortBy=${sortBy}&order=${sortOrder}&search=${search}&searchField=${searchField}`
+        `/invoices?page=${pagination.currentPage}&limit=10&sortBy=${sortBy}&order=${sortOrder}&search=${search}&searchField=${searchField}&status=${statusFilter}&dueDateRange=${dueDateRangeFilter}`
       );
       if (response.data.data) {
         setInvoices(response.data.data);
@@ -41,7 +42,6 @@ const InvoiceList = () => {
           totalItems: response.data.totalItems,
         }));
       } else {
-        // Fallback if backend API hasn't been updated yet or returns different structure
         setInvoices(Array.isArray(response.data) ? response.data : []);
       }
     } catch (err) {
@@ -55,7 +55,15 @@ const InvoiceList = () => {
   useEffect(() => {
     fetchInvoices();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pagination.currentPage, sortBy, sortOrder, search, searchField]);
+  }, [
+    pagination.currentPage,
+    sortBy,
+    sortOrder,
+    search,
+    searchField,
+    statusFilter,
+    dueDateRangeFilter,
+  ]);
 
   const handleSort = (field) => {
     if (sortBy === field) {
@@ -64,7 +72,7 @@ const InvoiceList = () => {
       setSortBy(field);
       setSortOrder("asc");
     }
-    setPagination((prev) => ({ ...prev, currentPage: 1 })); // Reset to first page
+    setPagination((prev) => ({ ...prev, currentPage: 1 }));
   };
 
   const SortIcon = ({ field }) => {
@@ -150,16 +158,33 @@ const InvoiceList = () => {
               {t("allInvoices")}
             </h2>
           )}
-          {/*<span style={{ color: "var(--color-primary)", cursor: "pointer" }}>
-            ⌄
-          </span>*/}
         </div>
         <div className="flex gap-2">
+          <Link to="/invoices/new" className="btn btn-primary">
+            + {t("new")}
+          </Link>
+        </div>
+      </div>
+
+      {/* Filter/Action Bar Pattern */}
+      <div
+        style={{
+          backgroundColor: "#f8fafc",
+          padding: "1rem",
+          borderRadius: "8px",
+          marginBottom: "1.5rem",
+          display: "flex",
+          flexWrap: "wrap",
+          gap: "1rem",
+          alignItems: "center",
+          border: "1px solid #e2e8f0",
+        }}
+      >
+        <div className="flex gap-2 items-center">
           <select
             value={searchField}
             onChange={(e) => {
               setSearchField(e.target.value);
-              setSearch(""); // Reset search when field changes
               setPagination((prev) => ({ ...prev, currentPage: 1 }));
             }}
             style={{
@@ -173,126 +198,77 @@ const InvoiceList = () => {
             <option value="clientName">{t("clientName")}</option>
             <option value="clientNIF">{t("clientNIF")}</option>
             <option value="invoiceNumber">{t("invoiceNumber")}</option>
-            <option value="status">{t("status")}</option>
-            <option value="date">{t("date")}</option>
-            <option value="dueDate">{t("dueDate")}</option>
             <option value="serie">{t("serie")}</option>
             <option value="type">{t("type") || "Type"}</option>
           </select>
-          {searchField === "status" ? (
-            <select
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPagination((prev) => ({ ...prev, currentPage: 1 }));
-              }}
-              style={{
-                padding: "0.5rem",
-                border: "1px solid var(--color-border)",
-                borderRadius: "4px",
-                fontSize: "0.9rem",
-                width: "200px",
-              }}
-            >
-              <option value="">{t("all") || "All"}</option>
-              <option value="Draft">{t("statusDraft")}</option>
-              <option value="Pending">{t("statusPending")}</option>
-              <option value="Paid">{t("statusPaid")}</option>
-            </select>
-          ) : searchField === "serie" ? (
-            <select
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPagination((prev) => ({ ...prev, currentPage: 1 }));
-              }}
-              style={{
-                padding: "0.5rem",
-                border: "1px solid var(--color-border)",
-                borderRadius: "4px",
-                fontSize: "0.9rem",
-                width: "200px",
-              }}
-            >
-              <option value="">{t("all") || "All"}</option>
-              <option value="A2025">A2025</option>
-              <option value="A2026">A2026</option>
-              <option value="R2025">R2025</option>
-              <option value="R2026">R2026</option>
-            </select>
-          ) : searchField === "type" ? (
-            <select
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPagination((prev) => ({ ...prev, currentPage: 1 }));
-              }}
-              style={{
-                padding: "0.5rem",
-                border: "1px solid var(--color-border)",
-                borderRadius: "4px",
-                fontSize: "0.9rem",
-                width: "200px",
-              }}
-            >
-              <option value="">{t("all")}</option>
-              <option value="F1">F1</option>
-              <option value="F2">F2</option>
-              <option value="R1">R1</option>
-              <option value="R4">R4</option>
-            </select>
-          ) : searchField === "date" || searchField === "dueDate" ? (
-            <input
-              type="date"
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPagination((prev) => ({ ...prev, currentPage: 1 }));
-              }}
-              style={{
-                padding: "0.5rem",
-                border: "1px solid var(--color-border)",
-                borderRadius: "4px",
-                fontSize: "0.9rem",
-              }}
-            />
-          ) : (
-            <input
-              type="text"
-              placeholder={t("searchPlaceholder") || "Search..."}
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPagination((prev) => ({ ...prev, currentPage: 1 }));
-              }}
-              style={{
-                padding: "0.5rem",
-                border: "1px solid var(--color-border)",
-                borderRadius: "4px",
-                fontSize: "0.9rem",
-              }}
-            />
-          )}
-          <Link to="/invoices/new" className="btn btn-primary">
-            + {t("new")}
-          </Link>
-          {/*<button className="btn btn-secondary" style={{ padding: "0.5rem" }}>
-            ...
-          </button>*/}
-        </div>
-      </div>
 
-      {/* Filter/Action Bar Pattern (Visual placeholder based on image) */}
-      <div
-        className="flex justify-between items-center"
-        style={{
-          marginBottom: "1rem",
-          color: "var(--color-text-secondary)",
-          fontSize: "0.9rem",
-        }}
-      >
-        <div className="flex gap-4">{/* Visual filters if needed */}</div>
-        <div>{/* Search icon or filter icon usually here */}</div>
+          <input
+            type="text"
+            placeholder={t("searchPlaceholder") || "Search..."}
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPagination((prev) => ({ ...prev, currentPage: 1 }));
+            }}
+            style={{
+              padding: "0.5rem",
+              border: "1px solid var(--color-border)",
+              borderRadius: "4px",
+              fontSize: "0.9rem",
+              minWidth: "200px",
+            }}
+          />
+        </div>
+
+        <div className="flex gap-2 items-center">
+          <select
+            value={statusFilter}
+            onChange={(e) => {
+              setStatusFilter(e.target.value);
+              setPagination((prev) => ({ ...prev, currentPage: 1 }));
+            }}
+            style={{
+              padding: "0.5rem",
+              border: "1px solid var(--color-border)",
+              borderRadius: "4px",
+              fontSize: "0.9rem",
+              backgroundColor: "white",
+              minWidth: "150px",
+            }}
+          >
+            <option value="">{t("status")}</option>
+            <option value="Draft">{t("statusDraft")}</option>
+            <option value="Pending">{t("statusPending")}</option>
+            <option value="Paid">{t("statusPaid")}</option>
+          </select>
+
+          <select
+            value={dueDateRangeFilter}
+            onChange={(e) => {
+              setDueDateRangeFilter(e.target.value);
+              setPagination((prev) => ({ ...prev, currentPage: 1 }));
+            }}
+            style={{
+              padding: "0.5rem",
+              border: "1px solid var(--color-border)",
+              borderRadius: "4px",
+              fontSize: "0.9rem",
+              backgroundColor: "white",
+              minWidth: "200px",
+            }}
+          >
+            <option value="">{t("allExpirations")}</option>
+            <option value="thisMonth">{t("expireThisMonth")}</option>
+            <option value="nextMonth">{t("expireNextMonth")}</option>
+            <option value="moreThanTwoMonths">
+              {t("expireMoreThanTwoMonths")}
+            </option>
+            <option value="next30Days">{t("expireNext30Days")}</option>
+            <option value="next60Days">{t("expireNext60Days")}</option>
+            <option value="next90Days">{t("expireNext90Days")}</option>
+            <option value="moreThan90Days">{t("expireMoreThan90Days")}</option>
+          </select>
+        </div>
       </div>
 
       {/* Main Table Card */}
@@ -557,7 +533,7 @@ const InvoiceList = () => {
                         fontWeight: "500",
                       }}
                     >
-                      {invoice.invoiceNumber}
+                      {invoice.invoiceNumber || "-"}
                     </Link>
                   </td>
                   <td
@@ -578,7 +554,7 @@ const InvoiceList = () => {
                     }}
                     data-label={t("clientName")}
                   >
-                    {invoice.clientName}
+                    {invoice.clientName || "-"}
                   </td>
                   <td
                     style={{
@@ -597,7 +573,7 @@ const InvoiceList = () => {
                     }}
                     data-label={t("owner")}
                   >
-                    {invoice.userId?.username || "N/A"}
+                    {invoice.userId?.username || "-"}
                   </td>
                   <td style={{ padding: "1rem" }} data-label={t("status")}>
                     <span
@@ -657,14 +633,14 @@ const InvoiceList = () => {
                     style={{ padding: "1rem", fontSize: "0.9rem" }}
                     data-label={t("date")}
                   >
-                    {
-                      /*new Date(invoice.date).toLocaleDateString(undefined, {
+                    {invoice.date
+                      ? /*new Date(invoice.date).toLocaleDateString(undefined, {
                       timeZone: "America/Caracas",
                     })*/
-                      new Date(invoice.date).toLocaleDateString("es-ES", {
-                        timeZone: "America/Caracas",
-                      })
-                    }
+                        new Date(invoice.date).toLocaleDateString("es-ES", {
+                          timeZone: "America/Caracas",
+                        })
+                      : "-"}
                   </td>
                   <td
                     style={{ padding: "1rem", fontSize: "0.9rem" }}
@@ -754,9 +730,7 @@ const InvoiceList = () => {
                           <path d="M0 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V4Zm2-1a1 1 0 0 0-1 1v.217l7 4.2 7-4.2V4a1 1 0 0 0-1-1H2Zm13 2.383-4.708 2.825L15 11.105V5.383Zm-.034 6.876-5.64-3.471L8 9.583l-1.326-.795-5.64 3.47A1 1 0 0 0 2 13h12a1 1 0 0 0 .966-.741ZM1 11.105l4.708-2.897L1 5.383v5.722Z" />
                         </svg>
                       </button>
-
-                      {(currentUser?.type === "Admin" ||
-                        currentUser?.type === "SuperAdmin") && (
+                      {invoice.status !== "Draft" && (
                         <>
                           <Link
                             to={`/invoices/${invoice._id}/rectify`}
@@ -788,65 +762,73 @@ const InvoiceList = () => {
                               <path d="M8 4.466V.534a.25.25 0 0 0-.41-.192L5.23 2.308a.25.25 0 0 0 0 .384l2.36 1.966a.25.25 0 0 0 .41-.192z" />
                             </svg>
                           </Link>
-                          <Link
-                            to={`/invoices/${invoice._id}/edit`}
-                            style={{
-                              padding: "0.5rem",
-                              fontSize: "0.8rem",
-                              backgroundColor: "var(--color-sidebar-bg)",
-                              border: "1px solid var(--color-border)",
-                              color: "var(--color-text-secondary)",
-                              borderRadius: "4px",
-                              textDecoration: "none",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                            }}
-                            title={t("edit")}
-                          >
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              width="16"
-                              height="16"
-                              fill="currentColor"
-                              viewBox="0 0 16 16"
-                            >
-                              <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z" />
-                            </svg>
-                          </Link>
-
-                          <button
-                            onClick={() => handleDelete(invoice._id)}
-                            style={{
-                              padding: "0.5rem",
-                              fontSize: "0.8rem",
-                              backgroundColor: "#fee2e2",
-                              color: "#ef4444",
-                              borderRadius: "4px",
-                              border: "none",
-                              cursor: "pointer",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                            }}
-                            title={t("delete")}
-                          >
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              width="16"
-                              height="16"
-                              fill="currentColor"
-                              viewBox="0 0 16 16"
-                            >
-                              <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z" />
-                              <path
-                                fillRule="evenodd"
-                                d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"
-                              />
-                            </svg>
-                          </button>
                         </>
                       )}
+                      {
+                        /*(currentUser?.type === "Admin" ||
+                        currentUser?.type === "SuperAdmin")*/
+                        invoice.status === "Draft" && (
+                          <>
+                            <Link
+                              to={`/invoices/${invoice._id}/edit`}
+                              style={{
+                                padding: "0.5rem",
+                                fontSize: "0.8rem",
+                                backgroundColor: "var(--color-sidebar-bg)",
+                                border: "1px solid var(--color-border)",
+                                color: "var(--color-text-secondary)",
+                                borderRadius: "4px",
+                                textDecoration: "none",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                              }}
+                              title={t("edit")}
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="16"
+                                height="16"
+                                fill="currentColor"
+                                viewBox="0 0 16 16"
+                              >
+                                <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z" />
+                              </svg>
+                            </Link>
+
+                            <button
+                              onClick={() => handleDelete(invoice._id)}
+                              style={{
+                                padding: "0.5rem",
+                                fontSize: "0.8rem",
+                                backgroundColor: "#fee2e2",
+                                color: "#ef4444",
+                                borderRadius: "4px",
+                                border: "none",
+                                cursor: "pointer",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                              }}
+                              title={t("delete")}
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="16"
+                                height="16"
+                                fill="currentColor"
+                                viewBox="0 0 16 16"
+                              >
+                                <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z" />
+                                <path
+                                  fillRule="evenodd"
+                                  d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"
+                                />
+                              </svg>
+                            </button>
+                          </>
+                        )
+                      }
                     </div>
                   </td>
                 </tr>

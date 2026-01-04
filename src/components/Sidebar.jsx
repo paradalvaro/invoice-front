@@ -6,10 +6,10 @@ const Sidebar = () => {
   const { t } = useLanguage();
 
   const navItems = [
-    { label: t("home"), path: "/dashboard", icon: "🏠" },
+    //{ label: t("home"), path: "/dashboard", icon: "🏠" },
     //{ label: "Artículos", path: "/items", icon: "🛍️" },
     { label: t("sales"), path: "/invoices", icon: "🛒" }, // Mapping Invoices to Ventas for now
-    //{ label: "Clientes", path: "/clients", icon: "👥" },
+    { label: t("clients"), path: "/clients", icon: "👥" },
     //{ label: "Estimaciones", path: "/estimates", icon: "📄" },
     { label: t("users"), path: "/users", icon: "👤" },
     // Add other items as visual placeholders if needed

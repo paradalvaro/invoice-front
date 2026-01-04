@@ -102,6 +102,31 @@ export const translations = {
     type: "Tipo",
     emailSentSuccess: "Factura enviada por correo con éxito",
     emailSentError: "Error al enviar la factura por correo",
+
+    // Clients
+    clients: "Clientes",
+    newClient: "Nuevo Cliente",
+    editClient: "Editar Cliente",
+    client: "Cliente",
+    address: "Dirección",
+    email: "Correo Electrónico",
+    noClients: "No hay clientes registrados.",
+    search: "Buscar",
+    noResults: "No se encontraron resultados",
+    confirmDeleteClient: "¿Estás seguro de que quieres eliminar este cliente?",
+    chooseExistingClient: "Escoger cliente existente",
+    createNewClient: "Crear nuevo cliente",
+    clientDetails: "Detalles del Cliente",
+
+    // Expiration Filters
+    allExpirations: "Todos los vencimientos",
+    expireThisMonth: "Vencen este mes",
+    expireNextMonth: "Vencen el próximo mes",
+    expireMoreThanTwoMonths: "Vencen en más de dos meses",
+    expireNext30Days: "Vencen en los próximos 30 días",
+    expireNext60Days: "Vencen en los próximos 60 días",
+    expireNext90Days: "Vencen en los próximos 90 días",
+    expireMoreThan90Days: "Vencen en más de 90 días",
   },
   en: {
     // General
@@ -206,5 +231,30 @@ export const translations = {
     type: "Type",
     emailSentSuccess: "Invoice sent by email successfully",
     emailSentError: "Error sending invoice by email",
+
+    // Clients
+    clients: "Clients",
+    newClient: "New Client",
+    editClient: "Edit Client",
+    client: "Client",
+    address: "Address",
+    email: "Email",
+    noClients: "No clients registered.",
+    search: "Search",
+    noResults: "No results found",
+    confirmDeleteClient: "Are you sure you want to delete this client?",
+    chooseExistingClient: "Choose existing client",
+    createNewClient: "Create new client",
+    clientDetails: "Client Details",
+
+    // Expiration Filters
+    allExpirations: "All expirations",
+    expireThisMonth: "Expire this month",
+    expireNextMonth: "Expire next month",
+    expireMoreThanTwoMonths: "Expire in more than two months",
+    expireNext30Days: "Expire in next 30 days",
+    expireNext60Days: "Expire in next 60 days",
+    expireNext90Days: "Expire in next 90 days",
+    expireMoreThan90Days: "Expire in more than 90 days",
   },
 };

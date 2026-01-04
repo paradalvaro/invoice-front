@@ -36,17 +36,30 @@ const InvoiceForm = () => {
     invoiceNumber: "",
     clientName: "",
     clientNIF: "",
+    client: "",
     services: [],
     totalAmount: 0,
     status: "Pending",
     date: getTodayStr(),
     dueDate: getTodayStr(),
   });
+  const [clients, setClients] = useState([]);
+  const [filteredClients, setFilteredClients] = useState([]);
+  const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false);
   const [initialInvoiceData, setInitialInvoiceData] = useState(null);
   const [paymentTerm, setPaymentTerm] = useState("custom");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [formError, setFormError] = useState(null);
+
+  // New State for Client Mode
+  const [clientMode, setClientMode] = useState("existing"); // 'existing' | 'new'
+  const [newClientData, setNewClientData] = useState({
+    name: "",
+    nif: "",
+    email: "",
+    address: "",
+  });
 
   const fetchInvoice = async () => {
     setIsLoading(true);
@@ -55,13 +68,15 @@ const InvoiceForm = () => {
       const response = await api.get(`/invoices/${id}`);
       const invoice = response.data;
       // Format date for input type="date"
-      const formattedDate = new Date(invoice.date).toISOString().split("T")[0];
+      const formattedDate = invoice.date
+        ? new Date(invoice.date).toISOString().split("T")[0]
+        : "";
       const formattedDueDate = invoice.dueDate
         ? new Date(invoice.dueDate).toISOString().split("T")[0]
         : "";
-      setFormData({
+      const updatedInvoice = {
         ...invoice,
-        serie: isRectifyMode ? "R2025" : invoice.serie, // Force R series for rectification
+        serie: isRectifyMode ? "R2025" : invoice.serie || "A2025", // Force R series for rectification, default A2025 for drafts
         type: isRectifyMode ? "R1" : invoice.type, // Force R type for rectification
         rectifyInvoice: isRectifyMode
           ? invoice.serie + invoice.invoiceNumber
@@ -72,16 +87,15 @@ const InvoiceForm = () => {
         })),
         date: formattedDate,
         dueDate: formattedDueDate,
-      });
-      setInitialInvoiceData({
-        ...invoice,
-        services: (invoice.services || []).map((s) => ({
-          ...s,
-          quantity: s.quantity || 1,
-        })),
-        date: formattedDate,
-        dueDate: formattedDueDate,
-      });
+      };
+
+      setFormData(updatedInvoice);
+      setInitialInvoiceData(updatedInvoice); // Save initial state
+
+      // Select the client if it exists
+      if (invoice.client) {
+        setClientMode("existing");
+      }
 
       // Calculate term
       if (formattedDate && formattedDueDate) {
@@ -97,67 +111,129 @@ const InvoiceForm = () => {
           setPaymentTerm("custom");
         }
       }
+      setIsLoading(false);
     } catch (err) {
       console.error("Error fetching invoice:", err);
       setError(t("error"));
-    } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    if (id) {
+    // Check if we are in "edit" mode but the ID is "new"
+    const isValidObjectId = (str) => /^[0-9a-fA-F]{24}$/.test(str);
+    if (id && isValidObjectId(id)) {
       fetchInvoice();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  // Auto-fetch next number when series changes (only for new invoices or if needed)
+  useEffect(() => {
+    const fetchClients = async () => {
+      try {
+        const response = await api.get("/clients?limit=100");
+        setClients(response.data.clients);
+      } catch (err) {
+        console.error("Error fetching clients:", err);
+      }
+    };
+    fetchClients();
+  }, []);
+
+  // Auto-fetch next number when series changes
   useEffect(() => {
     const fetchNextNumber = async () => {
-      // Logic:
-      // 1. New Mode: Always fetch when series changes.
-      // 2. Edit Mode: Fetch ONLY if series is different from initial.
-      // 3. Edit Mode (Revert): If series matches initial, restore initial number.
+      const isValidObjectId = (str) => /^[0-9a-fA-F]{24}$/.test(str);
+      const isNewInvoice = !id || !isValidObjectId(id);
+
+      if (!isNewInvoice && formData.invoiceNumber) {
+        return;
+      }
 
       if (!formData.serie) return;
 
-      const isSeriesChanged =
-        isEditMode &&
-        initialInvoiceData &&
-        formData.serie !== initialInvoiceData.serie;
+      if (formData.status === "Draft") {
+        return;
+      }
 
-      if (!isEditMode || isSeriesChanged) {
-        try {
-          const response = await api.get(
-            `/invoices/next-number?serie=${formData.serie}`
-          );
-          if (response.data.nextNumber) {
-            setFormData((prev) => ({
-              ...prev,
-              invoiceNumber: response.data.nextNumber,
-            }));
-          }
-        } catch (err) {
-          console.error("Error fetching next number:", err);
-        }
-      } else if (
-        isEditMode &&
-        initialInvoiceData &&
-        formData.serie === initialInvoiceData.serie
-      ) {
+      try {
+        const response = await api.get(
+          `/invoices/next-number?serie=${formData.serie}`
+        );
         setFormData((prev) => ({
           ...prev,
-          invoiceNumber: initialInvoiceData.invoiceNumber,
+          invoiceNumber: response.data.nextNumber,
         }));
+      } catch (err) {
+        console.error("Error fetching next number:", err);
       }
     };
-    fetchNextNumber();
-  }, [formData.serie, isEditMode, initialInvoiceData]);
+
+    if (
+      formData.serie &&
+      !formData.invoiceNumber &&
+      formData.status !== "Draft"
+    ) {
+      fetchNextNumber();
+    }
+  }, [formData.serie, formData.status, formData.invoiceNumber, id]);
 
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    let newFormData = { ...formData, [name]: value };
+
+    // Automatic date assignment when promoting from Draft
+    if (name === "status" && formData.status === "Draft" && value !== "Draft") {
+      if (!formData.date) {
+        newFormData.date = getTodayStr();
+      }
+    }
+
+    // Clear invoice number if moving TO draft (optional, user preference often)
+    if (name === "status" && value === "Draft") {
+      newFormData.invoiceNumber = "";
+    }
+
+    setFormData(newFormData);
     if (formError) setFormError(null);
+  };
+
+  // --- Client Handling ---
+
+  const handleClientNameChange = (e) => {
+    const value = e.target.value;
+    setFormData({ ...formData, clientName: value, client: "" }); // Clear linked client if manually typing
+    setIsClientDropdownOpen(true);
+    if (value) {
+      const filtered = clients.filter((client) =>
+        client.name.toLowerCase().includes(value.toLowerCase())
+      );
+      setFilteredClients(filtered);
+    } else {
+      setFilteredClients([]);
+    }
+  };
+
+  const selectClient = (client) => {
+    setFormData({
+      ...formData,
+      client: client._id,
+      clientName: client.name,
+      clientNIF: client.nif,
+      // Optional: fill address/email if you added those fields to Invoice model (we didn't yet, but good for UI)
+    });
+    // We can store the full selected client object in a temp state to show the card details
+    // But since `formData` only stores simple fields, let's use a helper or just rely on finding it in `clients`
+    setIsClientDropdownOpen(false);
+  };
+
+  const handleNewClientChange = (e) => {
+    setNewClientData({ ...newClientData, [e.target.name]: e.target.value });
+  };
+
+  const getSelectedClientDetails = () => {
+    if (!formData.client) return null;
+    return clients.find((c) => c._id === formData.client);
   };
 
   const handleServiceChange = (index, e) => {
@@ -172,22 +248,21 @@ const InvoiceForm = () => {
         (taxBase * quantity * 0.21).toFixed(2)
       );
     }
-
-    const newTotal = newServices.reduce(
-      (acc, s) =>
-        acc +
-        (parseFloat(s.taxBase) || 0) * (parseFloat(s.quantity) || 0) +
-        (parseFloat(s.iva) || 0),
-      0
-    );
-
-    setFormData({
-      ...formData,
-      services: newServices,
-      totalAmount: parseFloat(newTotal.toFixed(2)),
-    });
-    if (formError) setFormError(null);
+    setFormData({ ...formData, services: newServices });
   };
+
+  // Recalculate total whenever services change
+  useEffect(() => {
+    const total = formData.services.reduce((acc, service) => {
+      const base = parseFloat(service.taxBase) || 0;
+      const iva = parseFloat(service.iva) || 0;
+      return acc + base + iva;
+    }, 0);
+    setFormData((prev) => ({
+      ...prev,
+      totalAmount: parseFloat(total.toFixed(2)),
+    }));
+  }, [formData.services]);
 
   const addService = () => {
     setFormData({
@@ -200,15 +275,12 @@ const InvoiceForm = () => {
   };
 
   const removeService = (index) => {
-    const newServices = [...formData.services];
-    newServices.splice(index, 1);
-    const newTotal = newServices.reduce(
-      (acc, s) =>
-        acc +
-        (parseFloat(s.taxBase) || 0) * (parseFloat(s.quantity) || 0) +
-        (parseFloat(s.iva) || 0),
-      0
-    );
+    const newServices = formData.services.filter((_, i) => i !== index);
+    const newTotal = newServices.reduce((acc, service) => {
+      const base = parseFloat(service.taxBase) || 0;
+      const iva = parseFloat(service.iva) || 0;
+      return acc + base + iva;
+    }, 0);
     setFormData({
       ...formData,
       services: newServices,
@@ -234,11 +306,94 @@ const InvoiceForm = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setFormError(null);
+
+    // Validation
+    if (formData.status !== "Draft") {
+      if (!formData.serie) {
+        setFormError(t("serie") + " is required for non-draft invoices.");
+        return;
+      }
+      if (!formData.invoiceNumber) {
+        setFormError(
+          t("invoiceNumber") + " is required for non-draft invoices."
+        );
+        return;
+      }
+    }
+
+    // Client Validation
+    // For F1 invoices or any non-draft that requires client details
+    if (formData.type !== "F2" && formData.status !== "Draft") {
+      if (clientMode === "existing" && !formData.clientName) {
+        setFormError(t("clientName") + " is required.");
+        return;
+      }
+      if (clientMode === "new") {
+        if (!newClientData.name || !newClientData.nif) {
+          setFormError("New Client Name and NIF are required.");
+          return;
+        }
+      }
+    }
+
+    let finalFormData = { ...formData };
+
+    // If creating a new client
+    if (
+      clientMode === "new" &&
+      (formData.type !== "F2" || newClientData.name)
+    ) {
+      try {
+        const clientRes = await api.post("/clients", newClientData);
+        const newClient = clientRes.data;
+
+        // Add to local list so we don't have to refetch
+        setClients([...clients, newClient]);
+
+        // Link to invoice
+        finalFormData.client = newClient._id;
+        // Also populate the snapshot fields
+        finalFormData.clientName = newClient.name;
+        finalFormData.clientNIF = newClient.nif;
+      } catch (err) {
+        console.error("Error creating new client:", err);
+        setFormError(
+          "Error creating new client: " +
+            (err.response?.data?.message || err.message)
+        );
+        return;
+      }
+    } else if (clientMode === "existing") {
+      // If the user typed a name that isn't in the list (so no ID), we just save the name/NIF snapshots
+      // and set client to null.
+      if (!finalFormData.client) {
+        finalFormData.client = null;
+      }
+    }
+
+    // Backend validation: 'client' must be ObjectId or null/undefined. It cannot be "".
+    if (finalFormData.client === "") {
+      finalFormData.client = null;
+    }
+
     try {
+      const dataToUse = {
+        ...finalFormData,
+        dueDate: combineDateWithCurrentTime(finalFormData.dueDate),
+      };
+
+      if (isRectifyMode) {
+        delete dataToUse._id;
+      } else if (finalFormData.status === "Draft") {
+        delete dataToUse.date;
+        delete dataToUse.invoiceNumber;
+        delete dataToUse.serie;
+      }
+
       const payload = {
-        ...formData,
-        date: combineDateWithCurrentTime(formData.date || getTodayStr()),
-        dueDate: combineDateWithCurrentTime(formData.dueDate),
+        ...dataToUse,
+        //date: combineDateWithCurrentTime(formData.date || getTodayStr()),
       };
 
       if (isEditMode) {
@@ -249,7 +404,9 @@ const InvoiceForm = () => {
       navigate("/invoices");
     } catch (err) {
       console.error("Error saving invoice:", err);
-      setFormError(err.response?.data?.message || err.message);
+      // Improve error display
+      const msg = err.response?.data?.message || err.message;
+      setFormError(msg);
     }
   };
 
@@ -388,51 +545,302 @@ const InvoiceForm = () => {
             )}
             {formData.type !== "F2" && (
               <>
-                <div>
-                  <label
+                <div style={{ gridColumn: "span 2" }}>
+                  <div
                     style={{
-                      display: "block",
-                      marginBottom: "0.5rem",
-                      fontWeight: "500",
-                      color: "var(--color-text-secondary)",
+                      display: "flex",
+                      gap: "1.5rem",
+                      marginBottom: "1rem",
+                      borderBottom: "1px solid #e2e8f0",
+                      paddingBottom: "0.5rem",
                     }}
                   >
-                    {t("clientName")}
-                  </label>
-                  <input
-                    type="text"
-                    name="clientName"
-                    value={formData.clientName}
-                    onChange={handleChange}
-                    required={formData.type !== "F2"}
-                    style={{ fontSize: "1rem" }}
-                    placeholder={t("placeholderClient")}
-                  />
-                </div>
-                <div>
-                  <label
-                    style={{
-                      display: "block",
-                      marginBottom: "0.5rem",
-                      fontWeight: "500",
-                      color: "var(--color-text-secondary)",
-                    }}
-                  >
-                    {t("clientNIF")}
-                  </label>
-                  <input
-                    type="text"
-                    name="clientNIF"
-                    value={formData.clientNIF}
-                    onChange={handleChange}
-                    required={formData.type !== "F2"}
-                    style={{ fontSize: "1rem" }}
-                    placeholder={t("placeholderNIF")}
-                  />
+                    <button
+                      type="button"
+                      onClick={() => setClientMode("existing")}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        borderBottom:
+                          clientMode === "existing"
+                            ? "2px solid #6366f1"
+                            : "2px solid transparent",
+                        color:
+                          clientMode === "existing" ? "#6366f1" : "#64748b",
+                        fontWeight: "600",
+                        padding: "0.5rem 0",
+                        cursor: "pointer",
+                      }}
+                    >
+                      {t("chooseExistingClient")}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setClientMode("new")}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        borderBottom:
+                          clientMode === "new"
+                            ? "2px solid #6366f1"
+                            : "2px solid transparent",
+                        color: clientMode === "new" ? "#6366f1" : "#64748b",
+                        fontWeight: "600",
+                        padding: "0.5rem 0",
+                        cursor: "pointer",
+                      }}
+                    >
+                      + {t("createNewClient")}
+                    </button>
+                  </div>
+
+                  {clientMode === "existing" ? (
+                    <>
+                      <label
+                        style={{
+                          display: "block",
+                          marginBottom: "0.5rem",
+                          fontWeight: "500",
+                          color: "var(--color-text-secondary)",
+                        }}
+                      >
+                        {t("clientName")}
+                      </label>
+                      <div
+                        style={{ position: "relative", marginBottom: "1rem" }}
+                      >
+                        <input
+                          type="text"
+                          name="clientName"
+                          value={formData.clientName}
+                          onChange={handleClientNameChange}
+                          onFocus={() => {
+                            if (clients.length > 0) {
+                              setFilteredClients(clients);
+                              setIsClientDropdownOpen(true);
+                            }
+                          }}
+                          onBlur={() =>
+                            setTimeout(
+                              () => setIsClientDropdownOpen(false),
+                              200
+                            )
+                          }
+                          required={
+                            formData.type !== "F2" &&
+                            formData.status !== "Draft" &&
+                            clientMode === "existing"
+                          }
+                          style={{
+                            fontSize: "1rem",
+                            width: "100%",
+                            padding: "0.5rem",
+                            borderRadius: "0.375rem",
+                            border: "1px solid #cbd5e1",
+                          }}
+                          placeholder={t("placeholderClient")}
+                          autoComplete="off"
+                        />
+                        {isClientDropdownOpen && filteredClients.length > 0 && (
+                          <ul
+                            style={{
+                              position: "absolute",
+                              top: "100%",
+                              left: 0,
+                              right: 0,
+                              backgroundColor: "white",
+                              border: "1px solid #cbd5e1",
+                              borderRadius: "0.375rem",
+                              zIndex: 10,
+                              maxHeight: "200px",
+                              overflowY: "auto",
+                              boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                            }}
+                          >
+                            {filteredClients.map((client) => (
+                              <li
+                                key={client._id}
+                                onClick={() => selectClient(client)}
+                                style={{
+                                  padding: "0.5rem",
+                                  cursor: "pointer",
+                                  borderBottom: "1px solid #f1f5f9",
+                                }}
+                                className="hover:bg-gray-50"
+                              >
+                                <div style={{ fontWeight: "500" }}>
+                                  {client.name}
+                                </div>
+                                <div
+                                  style={{
+                                    fontSize: "0.8rem",
+                                    color: "var(--color-text-secondary)",
+                                  }}
+                                >
+                                  {client.nif}
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+
+                      {getSelectedClientDetails() && (
+                        <div
+                          style={{
+                            padding: "1rem",
+                            backgroundColor: "#f8fafc",
+                            borderRadius: "0.5rem",
+                            border: "1px solid #e2e8f0",
+                            marginBottom: "1rem",
+                          }}
+                        >
+                          <h4
+                            style={{
+                              margin: "0 0 0.25rem 0",
+                              fontWeight: "600",
+                              fontSize: "1rem",
+                            }}
+                          >
+                            {getSelectedClientDetails().name}
+                          </h4>
+                          {getSelectedClientDetails().email && (
+                            <div
+                              style={{ fontSize: "0.9rem", color: "#64748b" }}
+                            >
+                              {getSelectedClientDetails().email}
+                            </div>
+                          )}
+                          <div style={{ fontSize: "0.9rem", color: "#64748b" }}>
+                            NIF: {getSelectedClientDetails().nif}
+                          </div>
+                          {getSelectedClientDetails().address && (
+                            <div
+                              style={{ fontSize: "0.9rem", color: "#64748b" }}
+                            >
+                              {getSelectedClientDetails().address}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "1fr 1fr",
+                        gap: "1rem",
+                        marginBottom: "1rem",
+                      }}
+                    >
+                      <div style={{ gridColumn: "span 2" }}>
+                        <label
+                          style={{
+                            display: "block",
+                            marginBottom: "0.5rem",
+                            fontWeight: "500",
+                            color: "var(--color-text-secondary)",
+                          }}
+                        >
+                          {t("name")}
+                        </label>
+                        <input
+                          type="text"
+                          name="name"
+                          value={newClientData.name}
+                          onChange={handleNewClientChange}
+                          required={clientMode === "new"}
+                          style={{
+                            fontSize: "1rem",
+                            width: "100%",
+                            padding: "0.5rem",
+                            borderRadius: "0.375rem",
+                            border: "1px solid #cbd5e1",
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <label
+                          style={{
+                            display: "block",
+                            marginBottom: "0.5rem",
+                            fontWeight: "500",
+                            color: "var(--color-text-secondary)",
+                          }}
+                        >
+                          {t("clientNIF")}
+                        </label>
+                        <input
+                          type="text"
+                          name="nif"
+                          value={newClientData.nif}
+                          onChange={handleNewClientChange}
+                          required={clientMode === "new"}
+                          style={{
+                            fontSize: "1rem",
+                            width: "100%",
+                            padding: "0.5rem",
+                            borderRadius: "0.375rem",
+                            border: "1px solid #cbd5e1",
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <label
+                          style={{
+                            display: "block",
+                            marginBottom: "0.5rem",
+                            fontWeight: "500",
+                            color: "var(--color-text-secondary)",
+                          }}
+                        >
+                          {t("email")}
+                        </label>
+                        <input
+                          type="email"
+                          name="email"
+                          value={newClientData.email}
+                          onChange={handleNewClientChange}
+                          style={{
+                            fontSize: "1rem",
+                            width: "100%",
+                            padding: "0.5rem",
+                            borderRadius: "0.375rem",
+                            border: "1px solid #cbd5e1",
+                          }}
+                        />
+                      </div>
+                      <div style={{ gridColumn: "span 2" }}>
+                        <label
+                          style={{
+                            display: "block",
+                            marginBottom: "0.5rem",
+                            fontWeight: "500",
+                            color: "var(--color-text-secondary)",
+                          }}
+                        >
+                          {t("address")}
+                        </label>
+                        <textarea
+                          name="address"
+                          value={newClientData.address}
+                          onChange={handleNewClientChange}
+                          rows="2"
+                          style={{
+                            fontSize: "1rem",
+                            width: "100%",
+                            padding: "0.5rem",
+                            borderRadius: "0.375rem",
+                            border: "1px solid #cbd5e1",
+                            fontFamily: "inherit",
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
               </>
             )}
-
             <div>
               <label
                 style={{
@@ -448,10 +856,15 @@ const InvoiceForm = () => {
                 name="serie"
                 value={formData.serie}
                 onChange={handleChange}
+                disabled={formData.status === "Draft"}
                 style={{
                   padding: "0.5rem",
                   borderRadius: "0.375rem",
                   border: "1px solid #cbd5e1",
+                  backgroundColor:
+                    formData.status === "Draft" ? "#f3f4f6" : "white",
+                  cursor:
+                    formData.status === "Draft" ? "not-allowed" : "default",
                 }}
               >
                 {isRectifyMode ? (
@@ -520,9 +933,12 @@ const InvoiceForm = () => {
                 name="invoiceNumber"
                 value={formData.invoiceNumber}
                 onChange={handleChange}
-                required
+                required={formData.status !== "Draft"}
+                disabled={formData.status === "Draft"}
                 readOnly
-                placeholder={t("placeholderInvoice")}
+                placeholder={
+                  formData.status === "Draft" ? "-" : t("placeholderInvoice")
+                }
                 style={{
                   backgroundColor: "#f3f4f6",
                   cursor: "not-allowed",

@@ -42,7 +42,7 @@ const Login = () => {
             color: "var(--color-primary)",
           }}
         >
-          Books
+          Invoices
         </h1>
       </div>
 
