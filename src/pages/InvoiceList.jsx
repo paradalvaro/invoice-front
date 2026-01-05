@@ -23,6 +23,7 @@ const InvoiceList = () => {
   const [error, setError] = useState(null);
   const [statusFilter, setStatusFilter] = useState("");
   const [dueDateRangeFilter, setDueDateRangeFilter] = useState("");
+  const [totals, setTotals] = useState({ paid: 0, pending: 0, expired: 0 });
 
   const { t } = useLanguage();
   const { showNotification } = useNotification();
@@ -41,8 +42,10 @@ const InvoiceList = () => {
           totalPages: response.data.totalPages,
           totalItems: response.data.totalItems,
         }));
+        setTotals(response.data.totals || { paid: 0, pending: 0, expired: 0 });
       } else {
         setInvoices(Array.isArray(response.data) ? response.data : []);
+        setTotals({ paid: 0, pending: 0, expired: 0 });
       }
     } catch (err) {
       console.error("Error fetching invoices:", err);
@@ -132,6 +135,19 @@ const InvoiceList = () => {
     }
   };
 
+  const handleMarkAsPaid = async (id) => {
+    if (window.confirm(t("confirmMarkAsPaid"))) {
+      try {
+        await api.put(`/invoices/${id}/paid`);
+        fetchInvoices();
+        showNotification(t("changesSaved"), "success");
+      } catch (err) {
+        console.error("Error marking invoice as paid:", err);
+        showNotification(t("error"), "error");
+      }
+    }
+  };
+
   return (
     <div>
       {/* Page Header Area */}
@@ -163,6 +179,140 @@ const InvoiceList = () => {
           <Link to="/invoices/new" className="btn btn-primary">
             + {t("new")}
           </Link>
+        </div>
+      </div>
+
+      {/* Balance Bar */}
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "0.5rem",
+          backgroundColor: "white",
+          padding: "1rem",
+          borderRadius: "8px",
+          boxShadow: "var(--shadow-sm)",
+          marginBottom: "1.5rem",
+          border: "1px solid #e2e8f0",
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between" }}>
+          <div style={{ flex: 1 }}>
+            <span
+              style={{
+                fontSize: "0.8rem",
+                fontWeight: "600",
+                color: "#166534", // Green
+              }}
+            >
+              {t("statusPaid")}
+            </span>
+            <div style={{ fontSize: "1.2rem", fontWeight: "700" }}>
+              €
+              {totals.paid.toLocaleString("es-ES", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
+            </div>
+          </div>
+          <div style={{ flex: 1, textAlign: "center" }}>
+            <span
+              style={{
+                fontSize: "0.8rem",
+                fontWeight: "600",
+                color: "#d97706", // Orange
+              }}
+            >
+              {t("statusPending")}
+            </span>
+            <div style={{ fontSize: "1.2rem", fontWeight: "700" }}>
+              €
+              {totals.pending.toLocaleString("es-ES", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
+            </div>
+          </div>
+          <div style={{ flex: 1, textAlign: "right" }}>
+            <span
+              style={{
+                fontSize: "0.8rem",
+                fontWeight: "600",
+                color: "#dc2626", // Red
+              }}
+            >
+              {t("statusExpired")}
+            </span>
+            <div style={{ fontSize: "1.2rem", fontWeight: "700" }}>
+              €
+              {totals.expired.toLocaleString("es-ES", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
+            </div>
+          </div>
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            height: "12px",
+            borderRadius: "6px",
+            overflow: "hidden",
+            width: "100%",
+            backgroundColor: "#f1f5f9",
+          }}
+        >
+          {(() => {
+            const total = totals.paid + totals.pending + totals.expired;
+            if (total === 0) return null;
+            const paidPct = (totals.paid / total) * 100;
+            const pendingPct = (totals.pending / total) * 100;
+            const expiredPct = (totals.expired / total) * 100;
+
+            return (
+              <>
+                <div
+                  style={{ width: `${paidPct}%`, backgroundColor: "#10b981" }}
+                  title={`${t("statusPaid")}: ${paidPct.toFixed(1)}%`}
+                />
+                <div
+                  style={{
+                    width: `${pendingPct}%`,
+                    backgroundColor: "#f59e0b",
+                  }}
+                  title={`${t("statusPending")}: ${pendingPct.toFixed(1)}%`}
+                />
+                <div
+                  style={{
+                    width: `${expiredPct}%`,
+                    backgroundColor: "#ef4444",
+                  }}
+                  title={`${t("statusExpired")}: ${expiredPct.toFixed(1)}%`}
+                />
+              </>
+            );
+          })()}
+        </div>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            fontSize: "0.75rem",
+            color: "#64748b",
+          }}
+        >
+          {(() => {
+            const total = totals.paid + totals.pending + totals.expired;
+            if (total === 0) return null;
+            return (
+              <>
+                <span>{((totals.paid / total) * 100).toFixed(0)}%</span>
+                <span>{((totals.pending / total) * 100).toFixed(0)}%</span>
+                <span>{((totals.expired / total) * 100).toFixed(0)}%</span>
+              </>
+            );
+          })()}
         </div>
       </div>
 
@@ -586,12 +736,16 @@ const InvoiceList = () => {
                             ? "#dcfce7"
                             : invoice.status === "Draft"
                             ? "#f3f4f6"
+                            : new Date(invoice.dueDate) < new Date()
+                            ? "#fee2e2"
                             : "#fef9c3",
                         color:
                           invoice.status === "Paid"
                             ? "#166534"
                             : invoice.status === "Draft"
                             ? "#64748b"
+                            : new Date(invoice.dueDate) < new Date()
+                            ? "#991b1b"
                             : "#854d0e",
                         fontWeight: "600",
                         textTransform: "uppercase",
@@ -601,6 +755,8 @@ const InvoiceList = () => {
                         ? t("statusPaid")
                         : invoice.status === "Draft"
                         ? t("statusDraft")
+                        : new Date(invoice.dueDate) < new Date()
+                        ? t("statusExpired")
                         : t("statusPending")}
                     </span>
                   </td>
@@ -625,7 +781,10 @@ const InvoiceList = () => {
                     data-label={t("balanceDue")}
                   >
                     €
-                    {invoice.status === "Paid"
+                    {invoice.balanceDue !== undefined &&
+                    invoice.balanceDue !== null
+                      ? invoice.balanceDue.toFixed(2)
+                      : invoice.status === "Paid"
                       ? "0.00"
                       : invoice.totalAmount.toFixed(2)}
                   </td>
@@ -730,6 +889,35 @@ const InvoiceList = () => {
                           <path d="M0 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V4Zm2-1a1 1 0 0 0-1 1v.217l7 4.2 7-4.2V4a1 1 0 0 0-1-1H2Zm13 2.383-4.708 2.825L15 11.105V5.383Zm-.034 6.876-5.64-3.471L8 9.583l-1.326-.795-5.64 3.47A1 1 0 0 0 2 13h12a1 1 0 0 0 .966-.741ZM1 11.105l4.708-2.897L1 5.383v5.722Z" />
                         </svg>
                       </button>
+                      {invoice.status === "Pending" && (
+                        <button
+                          onClick={() => handleMarkAsPaid(invoice._id)}
+                          style={{
+                            padding: "0.5rem",
+                            fontSize: "0.8rem",
+                            backgroundColor: "var(--color-sidebar-bg)",
+                            border: "1px solid var(--color-border)",
+                            color: "#166534", // Green text
+                            borderRadius: "4px",
+                            cursor: "pointer",
+                            textDecoration: "none",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                          title={t("markAsPaid")}
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="16"
+                            height="16"
+                            fill="currentColor"
+                            viewBox="0 0 16 16"
+                          >
+                            <path d="M12.736 3.97a.733.733 0 0 1 1.047 0c.286.289.29.756.01 1.05L7.88 12.01a.733.733 0 0 1-1.065.02L3.217 8.384a.757.757 0 0 1 0-1.06.733.733 0 0 1 1.047 0l3.052 3.093 5.4-6.425a.247.247 0 0 1 .02-.022Z" />
+                          </svg>
+                        </button>
+                      )}
                       {invoice.status !== "Draft" && (
                         <>
                           <Link

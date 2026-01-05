@@ -46,7 +46,6 @@ const InvoiceForm = () => {
   const [clients, setClients] = useState([]);
   const [filteredClients, setFilteredClients] = useState([]);
   const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false);
-  const [initialInvoiceData, setInitialInvoiceData] = useState(null);
   const [paymentTerm, setPaymentTerm] = useState("custom");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -90,7 +89,6 @@ const InvoiceForm = () => {
       };
 
       setFormData(updatedInvoice);
-      setInitialInvoiceData(updatedInvoice); // Save initial state
 
       // Select the client if it exists
       if (invoice.client) {
@@ -528,18 +526,21 @@ const InvoiceForm = () => {
                   >
                     {t("rectifyReason")}
                   </label>
-                  <select
+                  <input
+                    type="text"
                     name="rectifyReason"
-                    value={formData.rectifyReason}
+                    value={formData.rectifyReason || ""}
                     onChange={handleChange}
+                    required
+                    placeholder={
+                      t("rectifyReason") || "Reason for rectification"
+                    }
                     style={{
                       padding: "0.5rem",
                       borderRadius: "0.375rem",
                       border: "1px solid #cbd5e1",
                     }}
-                  >
-                    <option value="Return">{t("return")}</option>
-                  </select>
+                  />
                 </div>
               </>
             )}
@@ -1226,40 +1227,91 @@ const InvoiceForm = () => {
             </div>
 
             <div style={{ gridColumn: "1 / -1" }}>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: "0.5rem",
-                  fontWeight: "500",
-                  color: "var(--color-text-secondary)",
-                }}
-              >
-                {t("totalAmount")}
-              </label>
-              <div style={{ position: "relative" }}>
-                <span
-                  style={{
-                    position: "absolute",
-                    left: "0.75rem",
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    color: "#64748b",
-                  }}
-                >
-                  €
-                </span>
-                <input
-                  type="number"
-                  name="totalAmount"
-                  value={formData.totalAmount}
-                  readOnly
-                  style={{
-                    paddingLeft: "2rem",
-                    backgroundColor: "#f3f4f6",
-                    cursor: "not-allowed",
-                  }}
-                />
-              </div>
+              {(() => {
+                const baseTotal = formData.services.reduce(
+                  (acc, s) =>
+                    acc +
+                    (parseFloat(s.taxBase) || 0) *
+                      (parseFloat(s.quantity) || 1),
+                  0
+                );
+                const ivaTotal = formData.services.reduce(
+                  (acc, s) => acc + (parseFloat(s.iva) || 0),
+                  0
+                );
+
+                return (
+                  <div
+                    style={{
+                      backgroundColor: "#f8fafc",
+                      padding: "1.5rem",
+                      borderRadius: "8px",
+                      border: "1px solid #e2e8f0",
+                      width: "100%",
+                      maxWidth: "350px",
+                      marginLeft: "auto",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        marginBottom: "0.5rem",
+                        color: "#64748b",
+                        fontSize: "0.9rem",
+                      }}
+                    >
+                      <span>{t("taxBase")}</span>
+                      <span>
+                        {baseTotal.toLocaleString("es-ES", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}{" "}
+                        €
+                      </span>
+                    </div>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        marginBottom: "0.5rem",
+                        color: "#64748b",
+                        fontSize: "0.9rem",
+                      }}
+                    >
+                      <span>{t("iva")}</span>
+                      <span>
+                        {ivaTotal.toLocaleString("es-ES", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}{" "}
+                        €
+                      </span>
+                    </div>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        marginTop: "1rem",
+                        paddingTop: "1rem",
+                        borderTop: "2px solid #e2e8f0",
+                        fontWeight: "700",
+                        fontSize: "1.1rem",
+                        color: "#1e293b",
+                      }}
+                    >
+                      <span>Total</span>
+                      <span>
+                        {formData.totalAmount.toLocaleString("es-ES", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}{" "}
+                        €
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           </div>
 

@@ -12,7 +12,10 @@ export const translations = {
     send: "Enviar por Correo",
     actions: "Acciones",
     rectify: "Rectificar",
+    markAsPaid: "Marcar como Pagada",
     rectifyInvoice: "Factura a Rectificar",
+    confirmMarkAsPaid:
+      "¿Estás seguro de que quieres marcar esta factura como pagada?",
     confirmSendEmail: "¿Estás seguro de que quieres enviar esta factura?",
     confirmDelete: "¿Estás seguro de que quieres eliminar este elemento?",
     downloadPDF: "Descargar PDF",
@@ -63,6 +66,7 @@ export const translations = {
     statusDraft: "Borrador",
     statusPending: "Pendiente",
     statusPaid: "Pagado",
+    statusExpired: "Vencida",
     createInvoice: "Crear Factura",
     updateInvoice: "Actualizar Factura",
     services: "Servicios",
@@ -73,8 +77,7 @@ export const translations = {
     removeService: "Eliminar",
     quantity: "Cantidad",
     rectifyReason: "Motivo de la Rectificación",
-    return:
-      "Devolución de mercancías o corrección de errores en el IVA u otros impuestos",
+    //return: "Devolución de mercancías o corrección de errores en el IVA u otros impuestos",
 
     // Users
     allUsers: "Todos los usuarios",
@@ -141,7 +144,9 @@ export const translations = {
     send: "Send Email",
     actions: "Actions",
     rectify: "Rectify",
+    markAsPaid: "Mark as Paid",
     rectifyInvoice: "Invoice to Rectify",
+    confirmMarkAsPaid: "Are you sure you want to mark this invoice as paid?",
     confirmSendEmail: "Are you sure you want to send this invoice?",
     confirmDelete: "Are you sure you want to delete this item?",
     downloadPDF: "Download PDF",
@@ -192,6 +197,7 @@ export const translations = {
     statusDraft: "Draft",
     statusPending: "Pending",
     statusPaid: "Paid",
+    statusExpired: "Expired",
     createInvoice: "Create Invoice",
     updateInvoice: "Update Invoice",
     services: "Services",
@@ -202,8 +208,7 @@ export const translations = {
     removeService: "Remove",
     quantity: "Quantity",
     rectifyReason: "Reason for Rectification",
-    return:
-      "Return of merchandise or correction of errors in VAT or other taxes",
+    //return: "Return of merchandise or correction of errors in VAT or other taxes",
 
     // Users
     allUsers: "All Users",
