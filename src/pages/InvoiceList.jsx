@@ -35,7 +35,6 @@ const InvoiceList = () => {
       const response = await api.get(
         `/invoices?page=${pagination.currentPage}&limit=10&sortBy=${sortBy}&order=${sortOrder}&search=${search}&searchField=${searchField}&status=${statusFilter}&dueDateRange=${dueDateRangeFilter}`
       );
-      console.log(response.data);
       if (response.data.data) {
         setInvoices(response.data.data);
         setPagination((prev) => ({
