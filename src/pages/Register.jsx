@@ -53,7 +53,7 @@ const Register = () => {
             color: "var(--color-primary)",
           }}
         >
-          Books
+          Invoices
         </h1>
       </div>
 
