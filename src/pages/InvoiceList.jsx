@@ -24,6 +24,9 @@ const InvoiceList = () => {
   const [statusFilter, setStatusFilter] = useState("");
   const [dueDateRangeFilter, setDueDateRangeFilter] = useState("");
   const [totals, setTotals] = useState({ paid: 0, pending: 0, expired: 0 });
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+  const [selectedInvoiceId, setSelectedInvoiceId] = useState(null);
+  const [recipientEmails, setRecipientEmails] = useState("");
 
   const { t } = useLanguage();
   const { showNotification } = useNotification();
@@ -106,21 +109,30 @@ const InvoiceList = () => {
     );
   };
 
-  const handleSendEmail = async (id) => {
-    if (window.confirm(t("confirmSendEmail"))) {
-      try {
-        await api.get(`/invoices/${id}/sendEmail`);
-        showNotification(
-          t("emailSentSuccess") || "Invoice sent by email",
-          "success"
-        );
-      } catch (err) {
-        console.error("Error sending invoice:", err);
-        showNotification(
-          t("emailSentError") || "Error sending invoice",
-          "error"
-        );
-      }
+  const handleSendEmail = (id) => {
+    setSelectedInvoiceId(id);
+    setRecipientEmails("");
+    setIsEmailModalOpen(true);
+  };
+
+  const confirmSendEmail = async () => {
+    if (!recipientEmails.trim()) {
+      showNotification(t("invalidEmails"), "error");
+      return;
+    }
+
+    try {
+      await api.post(`/invoices/${selectedInvoiceId}/sendEmail`, {
+        emails: recipientEmails,
+      });
+      showNotification(
+        t("emailSentSuccess") || "Invoice sent by email",
+        "success"
+      );
+      setIsEmailModalOpen(false);
+    } catch (err) {
+      console.error("Error sending invoice:", err);
+      showNotification(t("emailSentError") || "Error sending invoice", "error");
     }
   };
 
@@ -1074,6 +1086,86 @@ const InvoiceList = () => {
           {t("next")}
         </button>
       </div>
+
+      {/* Email Modal */}
+      {isEmailModalOpen && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "white",
+              padding: "2rem",
+              borderRadius: "8px",
+              width: "400px",
+              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+            }}
+          >
+            <h3
+              style={{
+                marginBottom: "1rem",
+                fontSize: "1.25rem",
+                fontWeight: "600",
+              }}
+            >
+              {t("emailModalTitle")}
+            </h3>
+            <div style={{ marginBottom: "1.5rem" }}>
+              <label
+                style={{
+                  display: "block",
+                  marginBottom: "0.5rem",
+                  fontSize: "0.9rem",
+                  color: "var(--color-text-secondary)",
+                }}
+              >
+                {t("recipientEmailsLabel")}
+              </label>
+              <textarea
+                value={recipientEmails}
+                onChange={(e) => setRecipientEmails(e.target.value)}
+                placeholder={t("emailPlaceholder")}
+                style={{
+                  width: "100%",
+                  padding: "0.5rem",
+                  borderRadius: "4px",
+                  border: "1px solid var(--color-border)",
+                  fontSize: "0.9rem",
+                  minHeight: "80px",
+                }}
+              />
+            </div>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "1rem",
+              }}
+            >
+              <button
+                className="btn btn-secondary"
+                onClick={() => setIsEmailModalOpen(false)}
+              >
+                {t("cancel")}
+              </button>
+              <button className="btn btn-primary" onClick={confirmSendEmail}>
+                {t("sendToEmails")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

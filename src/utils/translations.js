@@ -105,6 +105,11 @@ export const translations = {
     type: "Tipo",
     emailSentSuccess: "Factura enviada por correo con éxito",
     emailSentError: "Error al enviar la factura por correo",
+    emailModalTitle: "Enviar Factura por Correo",
+    recipientEmailsLabel: "Correos electrónicos (separados por comas)",
+    sendToEmails: "Enviar a los correos",
+    emailPlaceholder: "ejemplo@correo.com, otro@correo.com",
+    invalidEmails: "Por favor, introduce correos electrónicos válidos.",
 
     // Clients
     clients: "Clientes",
@@ -236,6 +241,11 @@ export const translations = {
     type: "Type",
     emailSentSuccess: "Invoice sent by email successfully",
     emailSentError: "Error sending invoice by email",
+    emailModalTitle: "Send Invoice by Email",
+    recipientEmailsLabel: "Email addresses (comma separated)",
+    sendToEmails: "Send to emails",
+    emailPlaceholder: "example@mail.com, other@mail.com",
+    invalidEmails: "Please enter valid email addresses.",
 
     // Clients
     clients: "Clients",
