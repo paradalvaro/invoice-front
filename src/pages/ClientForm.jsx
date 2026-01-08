@@ -13,6 +13,10 @@ const ClientForm = () => {
     name: "",
     nif: "",
     address: "",
+    postalCode: "",
+    city: "",
+    country: "",
+    phone: "",
     email: "",
   });
   const [isLoading, setIsLoading] = useState(isEditMode);
@@ -158,6 +162,31 @@ const ClientForm = () => {
                   color: "var(--color-text-secondary)",
                 }}
               >
+                {t("phone")}
+              </label>
+              <input
+                type="text"
+                name="phone"
+                value={formData.phone || ""}
+                onChange={handleChange}
+                style={{
+                  width: "100%",
+                  padding: "0.5rem",
+                  borderRadius: "0.375rem",
+                  border: "1px solid #cbd5e1",
+                }}
+              />
+            </div>
+
+            <div>
+              <label
+                style={{
+                  display: "block",
+                  marginBottom: "0.5rem",
+                  fontWeight: "500",
+                  color: "var(--color-text-secondary)",
+                }}
+              >
                 {t("email")}
               </label>
               <input
@@ -189,7 +218,7 @@ const ClientForm = () => {
                 name="address"
                 value={formData.address}
                 onChange={handleChange}
-                rows="3"
+                rows="2"
                 style={{
                   width: "100%",
                   padding: "0.5rem",
@@ -198,6 +227,87 @@ const ClientForm = () => {
                   fontFamily: "inherit",
                 }}
               />
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr 1fr",
+                gap: "1rem",
+              }}
+            >
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "0.5rem",
+                    fontWeight: "500",
+                    color: "var(--color-text-secondary)",
+                  }}
+                >
+                  {t("postalCode")}
+                </label>
+                <input
+                  type="text"
+                  name="postalCode"
+                  value={formData.postalCode || ""}
+                  onChange={handleChange}
+                  style={{
+                    width: "100%",
+                    padding: "0.5rem",
+                    borderRadius: "0.375rem",
+                    border: "1px solid #cbd5e1",
+                  }}
+                />
+              </div>
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "0.5rem",
+                    fontWeight: "500",
+                    color: "var(--color-text-secondary)",
+                  }}
+                >
+                  {t("city")}
+                </label>
+                <input
+                  type="text"
+                  name="city"
+                  value={formData.city || ""}
+                  onChange={handleChange}
+                  style={{
+                    width: "100%",
+                    padding: "0.5rem",
+                    borderRadius: "0.375rem",
+                    border: "1px solid #cbd5e1",
+                  }}
+                />
+              </div>
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "0.5rem",
+                    fontWeight: "500",
+                    color: "var(--color-text-secondary)",
+                  }}
+                >
+                  {t("country")}
+                </label>
+                <input
+                  type="text"
+                  name="country"
+                  value={formData.country || ""}
+                  onChange={handleChange}
+                  style={{
+                    width: "100%",
+                    padding: "0.5rem",
+                    borderRadius: "0.375rem",
+                    border: "1px solid #cbd5e1",
+                  }}
+                />
+              </div>
             </div>
 
             <div

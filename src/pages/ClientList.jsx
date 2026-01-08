@@ -231,6 +231,35 @@ const ClientList = () => {
                 </div>
               </th>
               <th
+                onClick={() => handleSort("phone")}
+                style={{
+                  padding: "1rem",
+                  textAlign: "left",
+                  fontSize: "0.75rem",
+                  fontWeight: "600",
+                  color: "#64748b",
+                  textTransform: "uppercase",
+                  cursor: "pointer",
+                  userSelect: "none",
+                }}
+              >
+                <div className="flex items-center">
+                  {t("phone")} <SortIcon field="phone" />
+                </div>
+              </th>
+              <th
+                style={{
+                  padding: "1rem",
+                  textAlign: "left",
+                  fontSize: "0.75rem",
+                  fontWeight: "600",
+                  color: "#64748b",
+                  textTransform: "uppercase",
+                }}
+              >
+                {t("address")}
+              </th>
+              <th
                 style={{
                   padding: "1rem",
                   textAlign: "left",
@@ -248,7 +277,7 @@ const ClientList = () => {
             {clients.length === 0 ? (
               <tr>
                 <td
-                  colSpan="4"
+                  colSpan="6"
                   style={{
                     padding: "2rem",
                     textAlign: "center",
@@ -282,6 +311,20 @@ const ClientList = () => {
                     data-label={t("email")}
                   >
                     {client.email || "-"}
+                  </td>
+                  <td
+                    style={{ padding: "1rem", fontSize: "0.9rem" }}
+                    data-label={t("phone")}
+                  >
+                    {client.phone || "-"}
+                  </td>
+                  <td
+                    style={{ padding: "1rem", fontSize: "0.9rem" }}
+                    data-label={t("address")}
+                  >
+                    {[client.address, client.postalCode, client.city]
+                      .filter(Boolean)
+                      .join(", ") || "-"}
                   </td>
                   <td
                     style={{ padding: "1rem", textAlign: "right" }}

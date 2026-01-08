@@ -57,7 +57,11 @@ const InvoiceForm = () => {
     name: "",
     nif: "",
     email: "",
+    phone: "",
     address: "",
+    postalCode: "",
+    city: "",
+    country: "",
   });
 
   const fetchInvoice = async () => {
@@ -239,22 +243,28 @@ const InvoiceForm = () => {
     const newServices = [...formData.services];
     newServices[index][name] = value;
 
-    if (name === "taxBase" || name === "quantity") {
-      const taxBase = parseFloat(newServices[index].taxBase) || 0;
-      const quantity = parseFloat(newServices[index].quantity) || 0;
-      newServices[index].iva = parseFloat(
-        (taxBase * quantity * 0.21).toFixed(2)
-      );
-    }
+    // Recalculate implicitly... actually we only set the raw value here.
+    // The previous logic was setting 'iva' which was the calculated amount (absolute).
+    // Now 'iva' is a percentage. And we need to store it as such.
+    // The total calculation will happen in the effect.
     setFormData({ ...formData, services: newServices });
   };
 
   // Recalculate total whenever services change
+  // Recalculate total whenever services change
   useEffect(() => {
     const total = formData.services.reduce((acc, service) => {
       const base = parseFloat(service.taxBase) || 0;
-      const iva = parseFloat(service.iva) || 0;
-      return acc + base + iva;
+      const quantity = parseFloat(service.quantity) || 0;
+      const discount = parseFloat(service.discount) || 0;
+      const ivaPercent = parseFloat(service.iva) || 0;
+
+      const subtotal = base * quantity;
+      const discountAmount = subtotal * (discount / 100);
+      const taxableAmount = subtotal - discountAmount;
+      const ivaAmount = taxableAmount * (ivaPercent / 100);
+
+      return acc + taxableAmount + ivaAmount;
     }, 0);
     setFormData((prev) => ({
       ...prev,
@@ -267,7 +277,7 @@ const InvoiceForm = () => {
       ...formData,
       services: [
         ...formData.services,
-        { concept: "", quantity: 1, taxBase: 0, iva: 0 },
+        { concept: "", quantity: 1, taxBase: 0, discount: 0, iva: 21 },
       ],
     });
   };
@@ -276,8 +286,16 @@ const InvoiceForm = () => {
     const newServices = formData.services.filter((_, i) => i !== index);
     const newTotal = newServices.reduce((acc, service) => {
       const base = parseFloat(service.taxBase) || 0;
-      const iva = parseFloat(service.iva) || 0;
-      return acc + base + iva;
+      const quantity = parseFloat(service.quantity) || 0;
+      const discount = parseFloat(service.discount) || 0;
+      const ivaPercent = parseFloat(service.iva) || 0;
+
+      const subtotal = base * quantity;
+      const discountAmount = subtotal * (discount / 100);
+      const taxableAmount = subtotal - discountAmount;
+      const ivaAmount = taxableAmount * (ivaPercent / 100);
+
+      return acc + taxableAmount + ivaAmount;
     }, 0);
     setFormData({
       ...formData,
@@ -715,11 +733,25 @@ const InvoiceForm = () => {
                           <div style={{ fontSize: "0.9rem", color: "#64748b" }}>
                             NIF: {getSelectedClientDetails().nif}
                           </div>
+                          {getSelectedClientDetails().phone && (
+                            <div
+                              style={{ fontSize: "0.9rem", color: "#64748b" }}
+                            >
+                              {t("phone")}: {getSelectedClientDetails().phone}
+                            </div>
+                          )}
                           {getSelectedClientDetails().address && (
                             <div
                               style={{ fontSize: "0.9rem", color: "#64748b" }}
                             >
-                              {getSelectedClientDetails().address}
+                              {[
+                                getSelectedClientDetails().address,
+                                getSelectedClientDetails().postalCode,
+                                getSelectedClientDetails().city,
+                                getSelectedClientDetails().country,
+                              ]
+                                .filter(Boolean)
+                                .join(", ")}
                             </div>
                           )}
                         </div>
@@ -811,6 +843,31 @@ const InvoiceForm = () => {
                           }}
                         />
                       </div>
+                      <div>
+                        <label
+                          style={{
+                            display: "block",
+                            marginBottom: "0.5rem",
+                            fontWeight: "500",
+                            color: "var(--color-text-secondary)",
+                          }}
+                        >
+                          {t("phone")}
+                        </label>
+                        <input
+                          type="text"
+                          name="phone"
+                          value={newClientData.phone}
+                          onChange={handleNewClientChange}
+                          style={{
+                            fontSize: "1rem",
+                            width: "100%",
+                            padding: "0.5rem",
+                            borderRadius: "0.375rem",
+                            border: "1px solid #cbd5e1",
+                          }}
+                        />
+                      </div>
                       <div style={{ gridColumn: "span 2" }}>
                         <label
                           style={{
@@ -834,6 +891,81 @@ const InvoiceForm = () => {
                             borderRadius: "0.375rem",
                             border: "1px solid #cbd5e1",
                             fontFamily: "inherit",
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <label
+                          style={{
+                            display: "block",
+                            marginBottom: "0.5rem",
+                            fontWeight: "500",
+                            color: "var(--color-text-secondary)",
+                          }}
+                        >
+                          {t("postalCode")}
+                        </label>
+                        <input
+                          type="text"
+                          name="postalCode"
+                          value={newClientData.postalCode}
+                          onChange={handleNewClientChange}
+                          style={{
+                            fontSize: "1rem",
+                            width: "100%",
+                            padding: "0.5rem",
+                            borderRadius: "0.375rem",
+                            border: "1px solid #cbd5e1",
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <label
+                          style={{
+                            display: "block",
+                            marginBottom: "0.5rem",
+                            fontWeight: "500",
+                            color: "var(--color-text-secondary)",
+                          }}
+                        >
+                          {t("city")}
+                        </label>
+                        <input
+                          type="text"
+                          name="city"
+                          value={newClientData.city}
+                          onChange={handleNewClientChange}
+                          style={{
+                            fontSize: "1rem",
+                            width: "100%",
+                            padding: "0.5rem",
+                            borderRadius: "0.375rem",
+                            border: "1px solid #cbd5e1",
+                          }}
+                        />
+                      </div>
+                      <div style={{ gridColumn: "span 2" }}>
+                        <label
+                          style={{
+                            display: "block",
+                            marginBottom: "0.5rem",
+                            fontWeight: "500",
+                            color: "var(--color-text-secondary)",
+                          }}
+                        >
+                          {t("country")}
+                        </label>
+                        <input
+                          type="text"
+                          name="country"
+                          value={newClientData.country}
+                          onChange={handleNewClientChange}
+                          style={{
+                            fontSize: "1rem",
+                            width: "100%",
+                            padding: "0.5rem",
+                            borderRadius: "0.375rem",
+                            border: "1px solid #cbd5e1",
                           }}
                         />
                       </div>
@@ -1094,8 +1226,8 @@ const InvoiceForm = () => {
                 <div
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "4fr 1fr 1.5fr 1.5fr 0.5fr",
-                    gap: "1rem",
+                    gridTemplateColumns: "3fr 0.8fr 1.2fr 1fr 1fr 0.5fr",
+                    gap: "0.5rem",
                     marginBottom: "0.5rem",
                     paddingRight: "0.5rem",
                   }}
@@ -1134,6 +1266,15 @@ const InvoiceForm = () => {
                       color: "var(--color-text-secondary)",
                     }}
                   >
+                    {t("discount")}
+                  </label>
+                  <label
+                    style={{
+                      fontSize: "0.85rem",
+                      fontWeight: "600",
+                      color: "var(--color-text-secondary)",
+                    }}
+                  >
                     {t("iva")}
                   </label>
                   <div></div>
@@ -1145,8 +1286,8 @@ const InvoiceForm = () => {
                   key={index}
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "4fr 1fr 1.5fr 1.5fr 0.5fr",
-                    gap: "1rem",
+                    gridTemplateColumns: "3fr 0.8fr 1.2fr 1fr 1fr 0.5fr",
+                    gap: "0.5rem",
                     marginBottom: "1rem",
                     paddingBottom: "1rem",
                     borderBottom: "1px solid #f1f5f9",
@@ -1192,15 +1333,28 @@ const InvoiceForm = () => {
                   <div>
                     <input
                       type="number"
+                      name="discount"
+                      value={service.discount}
+                      onChange={(e) => handleServiceChange(index, e)}
+                      placeholder={t("discount")}
+                      step="0.01"
+                      min="0"
+                      max="100"
+                      style={{ width: "100%" }}
+                    />
+                  </div>
+                  <div>
+                    <input
+                      type="number"
                       name="iva"
                       value={service.iva}
-                      readOnly
-                      style={{
-                        backgroundColor: "#f8fafc",
-                        cursor: "not-allowed",
-                        width: "100%",
-                      }}
+                      onChange={(e) => handleServiceChange(index, e)}
                       placeholder={t("iva")}
+                      step="0.01"
+                      min="0"
+                      max="100"
+                      required
+                      style={{ width: "100%" }}
                     />
                   </div>
                   <div style={{ display: "flex", justifyContent: "center" }}>
@@ -1228,17 +1382,30 @@ const InvoiceForm = () => {
 
             <div style={{ gridColumn: "1 / -1" }}>
               {(() => {
-                const baseTotal = formData.services.reduce(
+                const subtotal = formData.services.reduce(
                   (acc, s) =>
                     acc +
                     (parseFloat(s.taxBase) || 0) *
                       (parseFloat(s.quantity) || 1),
                   0
                 );
-                const ivaTotal = formData.services.reduce(
-                  (acc, s) => acc + (parseFloat(s.iva) || 0),
-                  0
-                );
+                const discountTotal = formData.services.reduce((acc, s) => {
+                  const base = parseFloat(s.taxBase) || 0;
+                  const quantity = parseFloat(s.quantity) || 1;
+                  const discount = parseFloat(s.discount) || 0;
+                  return acc + base * quantity * (discount / 100);
+                }, 0);
+                const taxableBase = subtotal - discountTotal;
+                const ivaTotal = formData.services.reduce((acc, s) => {
+                  const base = parseFloat(s.taxBase) || 0;
+                  const quantity = parseFloat(s.quantity) || 1;
+                  const discount = parseFloat(s.discount) || 0;
+                  const ivaPercent = parseFloat(s.iva) || 0;
+                  const lineSubtotal = base * quantity;
+                  const lineTaxable =
+                    lineSubtotal - lineSubtotal * (discount / 100);
+                  return acc + lineTaxable * (ivaPercent / 100);
+                }, 0);
 
                 return (
                   <div
@@ -1252,6 +1419,47 @@ const InvoiceForm = () => {
                       marginLeft: "auto",
                     }}
                   >
+                    {discountTotal > 0 && (
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          marginBottom: "0.5rem",
+                          color: "#64748b",
+                          fontSize: "0.9rem",
+                        }}
+                      >
+                        <span>{t("subtotal")}</span>
+                        <span>
+                          {subtotal.toLocaleString("es-ES", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}{" "}
+                          €
+                        </span>
+                      </div>
+                    )}
+                    {discountTotal > 0 && (
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          marginBottom: "0.5rem",
+                          color: "#64748b",
+                          fontSize: "0.9rem",
+                        }}
+                      >
+                        <span>{t("discount")}</span>
+                        <span>
+                          -
+                          {discountTotal.toLocaleString("es-ES", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}{" "}
+                          €
+                        </span>
+                      </div>
+                    )}
                     <div
                       style={{
                         display: "flex",
@@ -1263,7 +1471,7 @@ const InvoiceForm = () => {
                     >
                       <span>{t("taxBase")}</span>
                       <span>
-                        {baseTotal.toLocaleString("es-ES", {
+                        {taxableBase.toLocaleString("es-ES", {
                           minimumFractionDigits: 2,
                           maximumFractionDigits: 2,
                         })}{" "}
