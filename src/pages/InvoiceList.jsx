@@ -809,7 +809,7 @@ const InvoiceList = () => {
                       timeZone: "America/Caracas",
                     })*/
                         new Date(invoice.date).toLocaleDateString("es-ES", {
-                          timeZone: "America/Caracas",
+                          timeZone: "Europe/Madrid",
                         })
                       : "-"}
                   </td>
@@ -822,7 +822,7 @@ const InvoiceList = () => {
                       ? new Date(invoice.dueDate).toLocaleDateString(
                           undefined,
                           {
-                            timeZone: "America/Caracas",
+                            timeZone: "Europe/Madrid",
                           }
                         )
                       : "-"*/
@@ -830,7 +830,7 @@ const InvoiceList = () => {
                         ? new Date(invoice.dueDate).toLocaleDateString(
                             "es-ES",
                             {
-                              timeZone: "America/Caracas",
+                              timeZone: "Europe/Madrid",
                             }
                           )
                         : "-"

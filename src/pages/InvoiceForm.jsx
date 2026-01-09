@@ -11,24 +11,29 @@ const InvoiceForm = () => {
   const isRectifyMode = location.pathname.endsWith("/rectify");
   const isEditMode = !!id && !isRectifyMode;
 
-  // Helper to combine a YYYY-MM-DD string with the current local time
+  // Helper to combine a YYYY-MM-DD string with the current local time in Madrid
   const combineDateWithCurrentTime = (dateStr) => {
     if (!dateStr) return null;
     const [year, month, day] = dateStr.split("-").map(Number);
-    const now = new Date();
-    // Create new date using parts + current time
-    const combined = new Date(
-      year,
-      month - 1,
-      day,
-      now.getHours() - 4, //CARACAS TIME
-      now.getMinutes(),
-      now.getSeconds()
-    );
+    // Create the date object in the local timezone first
+    const combined = new Date();
+    combined.setFullYear(year);
+    combined.setMonth(month - 1);
+    combined.setDate(day);
+    // Keep current hours/minutes/seconds
     return combined.toISOString();
   };
 
-  const getTodayStr = () => new Date().toISOString().split("T")[0];
+  const getTodayStr = () => {
+    const now = new Date();
+    const formatter = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Europe/Madrid",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+    return formatter.format(now);
+  };
 
   const [formData, setFormData] = useState({
     serie: location.pathname.endsWith("/rectify") ? "R2025" : "A2025",
@@ -70,13 +75,19 @@ const InvoiceForm = () => {
     try {
       const response = await api.get(`/invoices/${id}`);
       const invoice = response.data;
-      // Format date for input type="date"
-      const formattedDate = invoice.date
-        ? new Date(invoice.date).toISOString().split("T")[0]
-        : "";
-      const formattedDueDate = invoice.dueDate
-        ? new Date(invoice.dueDate).toISOString().split("T")[0]
-        : "";
+      // Format date for input type="date" using Madrid timezone
+      const formatDate = (date) => {
+        if (!date) return "";
+        return new Intl.DateTimeFormat("en-CA", {
+          timeZone: "Europe/Madrid",
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        }).format(new Date(date));
+      };
+
+      const formattedDate = formatDate(invoice.date);
+      const formattedDueDate = formatDate(invoice.dueDate);
       const updatedInvoice = {
         ...invoice,
         serie: isRectifyMode ? "R2025" : invoice.serie || "A2025", // Force R series for rectification, default A2025 for drafts

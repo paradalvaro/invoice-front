@@ -13,6 +13,7 @@ export const translations = {
     actions: "Acciones",
     rectify: "Rectificar",
     markAsPaid: "Marcar como Pagada",
+    budgets: "Presupuestos",
     rectifyInvoice: "Factura a Rectificar",
     confirmMarkAsPaid:
       "¿Estás seguro de que quieres marcar esta factura como pagada?",
@@ -69,6 +70,12 @@ export const translations = {
     statusExpired: "Vencida",
     createInvoice: "Crear Factura",
     updateInvoice: "Actualizar Factura",
+    allBudgets: "Todos los presupuestos",
+    newBudget: "Nuevo Presupuesto",
+    editBudget: "Editar Presupuesto",
+    budgetNumber: "N.º de Presupuesto",
+    noBudgets: "No hay presupuestos para mostrar.",
+    statusDone: "Realizado",
     services: "Servicios",
     concept: "Concepto",
     subtotal: "Subtotal",
@@ -79,6 +86,7 @@ export const translations = {
     removeService: "Eliminar",
     quantity: "Cantidad",
     rectifyReason: "Motivo de la Rectificación",
+    noServicesError: "Debe agregar al menos un servicio.",
     //return: "Devolución de mercancías o corrección de errores en el IVA u otros impuestos",
 
     // Users
@@ -156,6 +164,7 @@ export const translations = {
     actions: "Actions",
     rectify: "Rectify",
     markAsPaid: "Mark as Paid",
+    budgets: "Budgets",
     rectifyInvoice: "Invoice to Rectify",
     confirmMarkAsPaid: "Are you sure you want to mark this invoice as paid?",
     confirmSendEmail: "Are you sure you want to send this invoice?",
@@ -211,6 +220,12 @@ export const translations = {
     statusExpired: "Expired",
     createInvoice: "Create Invoice",
     updateInvoice: "Update Invoice",
+    allBudgets: "All Budgets",
+    newBudget: "New Budget",
+    editBudget: "Edit Budget",
+    budgetNumber: "Budget #",
+    noBudgets: "No budgets to show.",
+    statusDone: "Done",
     services: "Services",
     concept: "Concept",
     subtotal: "Subtotal",
@@ -221,6 +236,7 @@ export const translations = {
     removeService: "Remove",
     quantity: "Quantity",
     rectifyReason: "Reason for Rectification",
+    noServicesError: "You must add at least one service.",
     //return: "Return of merchandise or correction of errors in VAT or other taxes",
 
     // Users

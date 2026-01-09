@@ -7,6 +7,8 @@ import UserList from "./pages/UserList";
 import UserForm from "./pages/UserForm";
 import ClientList from "./pages/ClientList";
 import ClientForm from "./pages/ClientForm";
+import BudgetList from "./pages/BudgetList";
+import BudgetForm from "./pages/BudgetForm";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 import Layout from "./components/Layout";
@@ -36,6 +38,10 @@ function App() {
             <Route path="/clients" element={<ClientList />} />
             <Route path="/clients/new" element={<ClientForm />} />
             <Route path="/clients/edit/:id" element={<ClientForm />} />
+
+            <Route path="/budgets" element={<BudgetList />} />
+            <Route path="/budgets/new" element={<BudgetForm />} />
+            <Route path="/budgets/:id/edit" element={<BudgetForm />} />
           </Route>
         </Route>
 
