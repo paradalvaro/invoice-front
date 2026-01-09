@@ -69,6 +69,25 @@ const BudgetList = () => {
     setPagination((prev) => ({ ...prev, currentPage: 1 }));
   };
 
+  const handleDownloadPDF = async (id, serie, number) => {
+    try {
+      showNotification(t("loading"), "info");
+      const response = await api.get(`/budgets/${id}/pdf`, {
+        responseType: "blob",
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `budget-${serie}${number}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+    } catch (err) {
+      console.error("Error downloading PDF:", err);
+      showNotification(t("error"), "error");
+    }
+  };
+
   const handleDelete = async (id) => {
     if (window.confirm(t("confirmDelete"))) {
       try {
@@ -221,6 +240,23 @@ const BudgetList = () => {
               }}
             >
               <th
+                onClick={() => handleSort("serie")}
+                style={{
+                  padding: "1rem",
+                  textAlign: "left",
+                  fontSize: "0.75rem",
+                  fontWeight: "600",
+                  color: "#64748b",
+                  textTransform: "uppercase",
+                  cursor: "pointer",
+                  userSelect: "none",
+                }}
+              >
+                <div className="flex items-center">
+                  {t("serie")} <SortIcon field="serie" />
+                </div>
+              </th>
+              <th
                 onClick={() => handleSort("budgetNumber")}
                 style={{
                   padding: "1rem",
@@ -264,6 +300,23 @@ const BudgetList = () => {
               >
                 <div className="flex items-center">
                   {t("date")} <SortIcon field="date" />
+                </div>
+              </th>
+              <th
+                onClick={() => handleSort("dueDate")}
+                style={{
+                  padding: "1rem",
+                  textAlign: "left",
+                  fontSize: "0.75rem",
+                  fontWeight: "600",
+                  color: "#64748b",
+                  textTransform: "uppercase",
+                  cursor: "pointer",
+                  userSelect: "none",
+                }}
+              >
+                <div className="flex items-center">
+                  {t("dueDate")} <SortIcon field="dueDate" />
                 </div>
               </th>
               <th
@@ -339,6 +392,15 @@ const BudgetList = () => {
                     style={{
                       padding: "1rem",
                       fontSize: "0.9rem",
+                    }}
+                    data-label={t("serie")}
+                  >
+                    {budget.serie || "-"}
+                  </td>
+                  <td
+                    style={{
+                      padding: "1rem",
+                      fontSize: "0.9rem",
                       textAlign: "center",
                     }}
                     data-label={t("budgetNumber")}
@@ -369,6 +431,16 @@ const BudgetList = () => {
                   >
                     {budget.date
                       ? new Date(budget.date).toLocaleDateString("es-ES", {
+                          timeZone: "Europe/Madrid",
+                        })
+                      : "-"}
+                  </td>
+                  <td
+                    style={{ padding: "1rem", fontSize: "0.9rem" }}
+                    data-label={t("dueDate")}
+                  >
+                    {budget.dueDate
+                      ? new Date(budget.dueDate).toLocaleDateString("es-ES", {
                           timeZone: "Europe/Madrid",
                         })
                       : "-"}
@@ -433,6 +505,39 @@ const BudgetList = () => {
                           <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z" />
                         </svg>
                       </Link>
+                      <button
+                        onClick={() =>
+                          handleDownloadPDF(
+                            budget._id,
+                            budget.serie,
+                            budget.budgetNumber
+                          )
+                        }
+                        style={{
+                          padding: "0.5rem",
+                          fontSize: "0.8rem",
+                          backgroundColor: "#f0fdf4",
+                          color: "#166534",
+                          borderRadius: "4px",
+                          border: "1px solid #bbf7d0",
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                        title={t("downloadPDF")}
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="16"
+                          height="16"
+                          fill="currentColor"
+                          viewBox="0 0 16 16"
+                        >
+                          <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z" />
+                          <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z" />
+                        </svg>
+                      </button>
                       <button
                         onClick={() => handleDelete(budget._id)}
                         style={{

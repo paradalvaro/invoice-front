@@ -12,6 +12,7 @@ const Sidebar = () => {
     { label: t("budgets"), path: "/budgets", icon: "📄" },
     { label: t("clients"), path: "/clients", icon: "👥" },
     { label: t("users"), path: "/users", icon: "👤" },
+    //{ label: "Modelo 347", path: "/modelo347", icon: "📊" },
     // Add other items as visual placeholders if needed
   ];
 

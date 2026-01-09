@@ -66,6 +66,7 @@ const InvoiceForm = () => {
     address: "",
     postalCode: "",
     city: "",
+    province: "",
     country: "",
   });
 
@@ -955,7 +956,32 @@ const InvoiceForm = () => {
                           }}
                         />
                       </div>
-                      <div style={{ gridColumn: "span 2" }}>
+                      <div>
+                        <label
+                          style={{
+                            display: "block",
+                            marginBottom: "0.5rem",
+                            fontWeight: "500",
+                            color: "var(--color-text-secondary)",
+                          }}
+                        >
+                          {t("province")}
+                        </label>
+                        <input
+                          type="text"
+                          name="province"
+                          value={newClientData.province}
+                          onChange={handleNewClientChange}
+                          style={{
+                            fontSize: "1rem",
+                            width: "100%",
+                            padding: "0.5rem",
+                            borderRadius: "0.375rem",
+                            border: "1px solid #cbd5e1",
+                          }}
+                        />
+                      </div>
+                      <div>
                         <label
                           style={{
                             display: "block",

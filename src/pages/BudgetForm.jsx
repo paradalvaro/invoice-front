@@ -23,6 +23,7 @@ const BudgetForm = () => {
   };
 
   const [formData, setFormData] = useState({
+    serie: "P2025",
     budgetNumber: "",
     client: "",
     clientName: "", // Temporary for searching
@@ -30,7 +31,10 @@ const BudgetForm = () => {
     totalAmount: 0,
     status: "Draft",
     date: getTodayStr(),
+    dueDate: getTodayStr(),
   });
+
+  const [paymentTerm, setPaymentTerm] = useState("custom");
 
   const [clients, setClients] = useState([]);
   const [filteredClients, setFilteredClients] = useState([]);
@@ -44,6 +48,7 @@ const BudgetForm = () => {
     address: "",
     postalCode: "",
     city: "",
+    province: "",
     country: "",
   });
 
@@ -66,11 +71,16 @@ const BudgetForm = () => {
     const fetchBudget = async () => {
       if (!isEditMode) {
         try {
-          const res = await api.get("/budgets/next-number");
-          setFormData((prev) => ({
-            ...prev,
-            budgetNumber: res.data.nextNumber,
-          }));
+          // Fetch next number if a serie is selected
+          if (formData.serie) {
+            const res = await api.get(
+              `/budgets/next-number?serie=${formData.serie}`
+            );
+            setFormData((prev) => ({
+              ...prev,
+              budgetNumber: res.data.nextNumber,
+            }));
+          }
         } catch (err) {
           console.error("Error fetching next budget number:", err);
         }
@@ -82,19 +92,42 @@ const BudgetForm = () => {
       try {
         const response = await api.get(`/budgets/${id}`);
         const budget = response.data;
+        const formatDate = (date) => {
+          if (!date) return "";
+          return new Intl.DateTimeFormat("en-CA", {
+            timeZone: "Europe/Madrid",
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+          }).format(new Date(date));
+        };
+
+        const formattedDate = formatDate(budget.date);
+        const formattedDueDate = formatDate(budget.dueDate);
+
         setFormData({
           ...budget,
-          date: budget.date
-            ? new Intl.DateTimeFormat("en-CA", {
-                timeZone: "Europe/Madrid",
-                year: "numeric",
-                month: "2-digit",
-                day: "2-digit",
-              }).format(new Date(budget.date))
-            : getTodayStr(),
+          date: formattedDate || getTodayStr(),
+          dueDate: formattedDueDate || getTodayStr(),
           client: budget.client?._id || budget.client || "",
           clientName: budget.client?.name || "",
         });
+
+        // Calculate term
+        if (formattedDate && formattedDueDate) {
+          const start = new Date(formattedDate);
+          const end = new Date(formattedDueDate);
+          const diffTime = Math.abs(end - start);
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+          const standardTerms = ["0", "1", "7", "15", "30", "45", "60"];
+          if (standardTerms.includes(String(diffDays))) {
+            setPaymentTerm(String(diffDays));
+          } else {
+            setPaymentTerm("custom");
+          }
+        }
+
         if (budget.client) setClientMode("existing");
       } catch (err) {
         console.error("Error fetching budget:", err);
@@ -105,7 +138,7 @@ const BudgetForm = () => {
     };
     fetchBudget();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, isEditMode]);
+  }, [id, isEditMode, formData.serie]);
 
   useEffect(() => {
     const total = formData.services.reduce((acc, service) => {
@@ -130,6 +163,23 @@ const BudgetForm = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
+  };
+
+  const handleTermChange = (e) => {
+    const term = e.target.value;
+    setPaymentTerm(term);
+
+    if (term !== "custom") {
+      const days = parseInt(term);
+      const baseDate = formData.date ? new Date(formData.date) : new Date();
+      const dueDate = new Date(baseDate);
+      dueDate.setDate(dueDate.getDate() + days);
+
+      setFormData((prev) => ({
+        ...prev,
+        dueDate: dueDate.toISOString().split("T")[0],
+      }));
+    }
   };
 
   const handleClientNameChange = (e) => {
@@ -190,12 +240,15 @@ const BudgetForm = () => {
     e.preventDefault();
     setFormError(null);
 
-    if (formData.services.length === 0) {
+    if (formData.status !== "Draft" && formData.services.length === 0) {
       setFormError(t("noServicesError") || "Add at least one service.");
       return;
     }
 
-    let finalFormData = { ...formData };
+    let finalFormData = {
+      ...formData,
+      client: formData.client || null,
+    };
 
     if (clientMode === "new") {
       if (!newClientData.name || !newClientData.nif) {
@@ -367,7 +420,9 @@ const BudgetForm = () => {
                     }}
                     placeholder={t("placeholderClient")}
                     autoComplete="off"
-                    required={clientMode === "existing"}
+                    required={
+                      formData.status !== "Draft" && clientMode === "existing"
+                    }
                   />
                   {isClientDropdownOpen && filteredClients.length > 0 && (
                     <ul
@@ -461,7 +516,9 @@ const BudgetForm = () => {
                         borderRadius: "0.375rem",
                         border: "1px solid #cbd5e1",
                       }}
-                      required={clientMode === "new"}
+                      required={
+                        formData.status !== "Draft" && clientMode === "new"
+                      }
                     />
                   </div>
                   <div>
@@ -486,7 +543,9 @@ const BudgetForm = () => {
                         borderRadius: "0.375rem",
                         border: "1px solid #cbd5e1",
                       }}
-                      required={clientMode === "new"}
+                      required={
+                        formData.status !== "Draft" && clientMode === "new"
+                      }
                     />
                   </div>
                   <div>
@@ -513,10 +572,186 @@ const BudgetForm = () => {
                       }}
                     />
                   </div>
+                  <div>
+                    <label
+                      style={{
+                        display: "block",
+                        marginBottom: "0.5rem",
+                        fontWeight: "500",
+                        color: "var(--color-text-secondary)",
+                      }}
+                    >
+                      {t("phone")}
+                    </label>
+                    <input
+                      type="text"
+                      name="phone"
+                      value={newClientData.phone}
+                      onChange={handleNewClientChange}
+                      style={{
+                        width: "100%",
+                        padding: "0.5rem",
+                        borderRadius: "0.375rem",
+                        border: "1px solid #cbd5e1",
+                      }}
+                    />
+                  </div>
+                  <div style={{ gridColumn: "span 2" }}>
+                    <label
+                      style={{
+                        display: "block",
+                        marginBottom: "0.5rem",
+                        fontWeight: "500",
+                        color: "var(--color-text-secondary)",
+                      }}
+                    >
+                      {t("address")}
+                    </label>
+                    <textarea
+                      name="address"
+                      value={newClientData.address}
+                      onChange={handleNewClientChange}
+                      rows="2"
+                      style={{
+                        width: "100%",
+                        padding: "0.5rem",
+                        borderRadius: "0.375rem",
+                        border: "1px solid #cbd5e1",
+                        fontFamily: "inherit",
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label
+                      style={{
+                        display: "block",
+                        marginBottom: "0.5rem",
+                        fontWeight: "500",
+                        color: "var(--color-text-secondary)",
+                      }}
+                    >
+                      {t("postalCode")}
+                    </label>
+                    <input
+                      type="text"
+                      name="postalCode"
+                      value={newClientData.postalCode}
+                      onChange={handleNewClientChange}
+                      style={{
+                        width: "100%",
+                        padding: "0.5rem",
+                        borderRadius: "0.375rem",
+                        border: "1px solid #cbd5e1",
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label
+                      style={{
+                        display: "block",
+                        marginBottom: "0.5rem",
+                        fontWeight: "500",
+                        color: "var(--color-text-secondary)",
+                      }}
+                    >
+                      {t("city")}
+                    </label>
+                    <input
+                      type="text"
+                      name="city"
+                      value={newClientData.city}
+                      onChange={handleNewClientChange}
+                      style={{
+                        width: "100%",
+                        padding: "0.5rem",
+                        borderRadius: "0.375rem",
+                        border: "1px solid #cbd5e1",
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label
+                      style={{
+                        display: "block",
+                        marginBottom: "0.5rem",
+                        fontWeight: "500",
+                        color: "var(--color-text-secondary)",
+                      }}
+                    >
+                      {t("province")}
+                    </label>
+                    <input
+                      type="text"
+                      name="province"
+                      value={newClientData.province}
+                      onChange={handleNewClientChange}
+                      style={{
+                        width: "100%",
+                        padding: "0.5rem",
+                        borderRadius: "0.375rem",
+                        border: "1px solid #cbd5e1",
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label
+                      style={{
+                        display: "block",
+                        marginBottom: "0.5rem",
+                        fontWeight: "500",
+                        color: "var(--color-text-secondary)",
+                      }}
+                    >
+                      {t("country")}
+                    </label>
+                    <input
+                      type="text"
+                      name="country"
+                      value={newClientData.country}
+                      onChange={handleNewClientChange}
+                      style={{
+                        width: "100%",
+                        padding: "0.5rem",
+                        borderRadius: "0.375rem",
+                        border: "1px solid #cbd5e1",
+                      }}
+                    />
+                  </div>
                 </div>
               )}
             </div>
 
+            <div>
+              <label
+                style={{
+                  display: "block",
+                  marginBottom: "0.5rem",
+                  fontWeight: "500",
+                  color: "var(--color-text-secondary)",
+                }}
+              >
+                {t("serie")}
+              </label>
+              <select
+                name="serie"
+                value={formData.serie}
+                onChange={handleChange}
+                disabled={formData.status === "Draft"}
+                style={{
+                  width: "100%",
+                  padding: "0.5rem",
+                  borderRadius: "0.375rem",
+                  border: "1px solid #cbd5e1",
+                  backgroundColor:
+                    formData.status === "Draft" ? "#f3f4f6" : "white",
+                  cursor:
+                    formData.status === "Draft" ? "not-allowed" : "default",
+                }}
+              >
+                <option value="P2025">P2025</option>
+                <option value="P2026">P2026</option>
+              </select>
+            </div>
             <div>
               <label
                 style={{
@@ -533,7 +768,7 @@ const BudgetForm = () => {
                 name="budgetNumber"
                 value={formData.budgetNumber}
                 onChange={handleChange}
-                required
+                required={formData.status !== "Draft"}
                 style={{
                   width: "100%",
                   padding: "0.5rem",
@@ -544,6 +779,56 @@ const BudgetForm = () => {
                 }}
                 readOnly
               />
+            </div>
+            <div>
+              <label
+                style={{
+                  display: "block",
+                  marginBottom: "0.5rem",
+                  fontWeight: "500",
+                  color: "var(--color-text-secondary)",
+                }}
+              >
+                {t("dueDate")}
+              </label>
+              <div style={{ display: "flex", gap: "0.5rem" }}>
+                <select
+                  value={paymentTerm}
+                  onChange={handleTermChange}
+                  style={{
+                    padding: "0.5rem",
+                    borderRadius: "0.375rem",
+                    border: "1px solid #cbd5e1",
+                    backgroundColor: "white",
+                  }}
+                >
+                  <option value="0">{t("today")}</option>
+                  <option value="1">1 {t("day")}</option>
+                  <option value="7">7 {t("days")}</option>
+                  <option value="15">15 {t("days")}</option>
+                  <option value="30">30 {t("days")}</option>
+                  <option value="45">45 {t("days")}</option>
+                  <option value="60">60 {t("days")}</option>
+                  <option value="custom">{t("manual")}</option>
+                </select>
+                <input
+                  type="date"
+                  name="dueDate"
+                  value={formData.dueDate}
+                  onChange={(e) => {
+                    handleChange(e);
+                    setPaymentTerm("custom");
+                  }}
+                  required
+                  style={{
+                    flex: 1,
+                    padding: "0.5rem",
+                    borderRadius: "0.375rem",
+                    border: "1px solid #cbd5e1",
+                  }}
+                  readOnly={paymentTerm !== "custom"}
+                />
+              </div>
             </div>
             <div>
               <label
@@ -671,7 +956,7 @@ const BudgetForm = () => {
                   name="concept"
                   value={service.concept}
                   onChange={(e) => handleServiceChange(index, e)}
-                  required
+                  required={formData.status !== "Draft"}
                   style={{
                     width: "100%",
                     padding: "0.5rem",
@@ -684,7 +969,7 @@ const BudgetForm = () => {
                   name="quantity"
                   value={service.quantity}
                   onChange={(e) => handleServiceChange(index, e)}
-                  required
+                  required={formData.status !== "Draft"}
                   style={{
                     width: "100%",
                     padding: "0.5rem",
@@ -698,7 +983,7 @@ const BudgetForm = () => {
                   name="taxBase"
                   value={service.taxBase}
                   onChange={(e) => handleServiceChange(index, e)}
-                  required
+                  required={formData.status !== "Draft"}
                   style={{
                     width: "100%",
                     padding: "0.5rem",
@@ -725,7 +1010,7 @@ const BudgetForm = () => {
                   name="iva"
                   value={service.iva}
                   onChange={(e) => handleServiceChange(index, e)}
-                  required
+                  required={formData.status !== "Draft"}
                   style={{
                     width: "100%",
                     padding: "0.5rem",

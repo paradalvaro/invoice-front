@@ -9,6 +9,7 @@ import ClientList from "./pages/ClientList";
 import ClientForm from "./pages/ClientForm";
 import BudgetList from "./pages/BudgetList";
 import BudgetForm from "./pages/BudgetForm";
+import Modelo347 from "./pages/Modelo347";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 import Layout from "./components/Layout";
@@ -42,6 +43,7 @@ function App() {
             <Route path="/budgets" element={<BudgetList />} />
             <Route path="/budgets/new" element={<BudgetForm />} />
             <Route path="/budgets/:id/edit" element={<BudgetForm />} />
+            <Route path="/modelo347" element={<Modelo347 />} />
           </Route>
         </Route>
 

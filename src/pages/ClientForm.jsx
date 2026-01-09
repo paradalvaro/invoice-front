@@ -15,6 +15,7 @@ const ClientForm = () => {
     address: "",
     postalCode: "",
     city: "",
+    province: "",
     country: "",
     phone: "",
     email: "",
@@ -275,6 +276,30 @@ const ClientForm = () => {
                   type="text"
                   name="city"
                   value={formData.city || ""}
+                  onChange={handleChange}
+                  style={{
+                    width: "100%",
+                    padding: "0.5rem",
+                    borderRadius: "0.375rem",
+                    border: "1px solid #cbd5e1",
+                  }}
+                />
+              </div>
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "0.5rem",
+                    fontWeight: "500",
+                    color: "var(--color-text-secondary)",
+                  }}
+                >
+                  {t("province")}
+                </label>
+                <input
+                  type="text"
+                  name="province"
+                  value={formData.province || ""}
                   onChange={handleChange}
                   style={{
                     width: "100%",
