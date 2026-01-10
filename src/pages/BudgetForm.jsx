@@ -32,9 +32,9 @@ const BudgetForm = () => {
     status: "Draft",
     date: getTodayStr(),
     dueDate: getTodayStr(),
+    paymentTerms: "1 day",
+    paymentTermsManual: "",
   });
-
-  const [paymentTerm, setPaymentTerm] = useState("custom");
 
   const [clients, setClients] = useState([]);
   const [filteredClients, setFilteredClients] = useState([]);
@@ -111,22 +111,9 @@ const BudgetForm = () => {
           dueDate: formattedDueDate || getTodayStr(),
           client: budget.client?._id || budget.client || "",
           clientName: budget.client?.name || "",
+          paymentTerms: budget.paymentTerms || "1 day",
+          paymentTermsManual: budget.paymentTermsManual || "",
         });
-
-        // Calculate term
-        if (formattedDate && formattedDueDate) {
-          const start = new Date(formattedDate);
-          const end = new Date(formattedDueDate);
-          const diffTime = Math.abs(end - start);
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-          const standardTerms = ["0", "1", "7", "15", "30", "45", "60"];
-          if (standardTerms.includes(String(diffDays))) {
-            setPaymentTerm(String(diffDays));
-          } else {
-            setPaymentTerm("custom");
-          }
-        }
 
         if (budget.client) setClientMode("existing");
       } catch (err) {
@@ -167,19 +154,23 @@ const BudgetForm = () => {
 
   const handleTermChange = (e) => {
     const term = e.target.value;
-    setPaymentTerm(term);
 
-    if (term !== "custom") {
-      const days = parseInt(term);
+    let newDueDate = formData.dueDate;
+    if (term !== "Manual" && term !== "custom") {
+      const days = parseInt(term.split(" ")[0]);
       const baseDate = formData.date ? new Date(formData.date) : new Date();
-      const dueDate = new Date(baseDate);
-      dueDate.setDate(dueDate.getDate() + days);
-
-      setFormData((prev) => ({
-        ...prev,
-        dueDate: dueDate.toISOString().split("T")[0],
-      }));
+      if (!isNaN(days)) {
+        const d = new Date(baseDate);
+        d.setDate(d.getDate() + days);
+        newDueDate = d.toISOString().split("T")[0];
+      }
     }
+
+    setFormData((prev) => ({
+      ...prev,
+      paymentTerms: term,
+      dueDate: newDueDate,
+    }));
   };
 
   const handleClientNameChange = (e) => {
@@ -789,46 +780,77 @@ const BudgetForm = () => {
                   color: "var(--color-text-secondary)",
                 }}
               >
-                {t("dueDate")}
+                {t("paymentTerms")}
               </label>
-              <div style={{ display: "flex", gap: "0.5rem" }}>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "0.5rem",
+                }}
+              >
                 <select
-                  value={paymentTerm}
+                  name="paymentTerms"
+                  value={formData.paymentTerms}
                   onChange={handleTermChange}
                   style={{
+                    width: "100%",
                     padding: "0.5rem",
                     borderRadius: "0.375rem",
                     border: "1px solid #cbd5e1",
                     backgroundColor: "white",
                   }}
                 >
-                  <option value="0">{t("today")}</option>
-                  <option value="1">1 {t("day")}</option>
-                  <option value="7">7 {t("days")}</option>
-                  <option value="15">15 {t("days")}</option>
-                  <option value="30">30 {t("days")}</option>
-                  <option value="45">45 {t("days")}</option>
-                  <option value="60">60 {t("days")}</option>
-                  <option value="custom">{t("manual")}</option>
+                  <option value="1 day">1 {t("day")}</option>
+                  <option value="7 days">7 {t("days")}</option>
+                  <option value="15 days">15 {t("days")}</option>
+                  <option value="30 days">30 {t("days")}</option>
+                  <option value="45 days">45 {t("days")}</option>
+                  <option value="60 days">60 {t("days")}</option>
+                  <option value="Manual">{t("manual")}</option>
                 </select>
-                <input
-                  type="date"
-                  name="dueDate"
-                  value={formData.dueDate}
-                  onChange={(e) => {
-                    handleChange(e);
-                    setPaymentTerm("custom");
-                  }}
-                  required
-                  style={{
-                    flex: 1,
-                    padding: "0.5rem",
-                    borderRadius: "0.375rem",
-                    border: "1px solid #cbd5e1",
-                  }}
-                  readOnly={paymentTerm !== "custom"}
-                />
+                {formData.paymentTerms === "Manual" && (
+                  <input
+                    type="text"
+                    name="paymentTermsManual"
+                    value={formData.paymentTermsManual}
+                    onChange={handleChange}
+                    placeholder={t("paymentTermsManualPlaceholder")}
+                    required={formData.status !== "Draft"}
+                    style={{
+                      width: "100%",
+                      padding: "0.5rem",
+                      borderRadius: "0.375rem",
+                      border: "1px solid #cbd5e1",
+                    }}
+                  />
+                )}
               </div>
+            </div>
+            <div>
+              <label
+                style={{
+                  display: "block",
+                  marginBottom: "0.5rem",
+                  fontWeight: "500",
+                  color: "var(--color-text-secondary)",
+                }}
+              >
+                {t("dueDate")}
+              </label>
+              <input
+                type="date"
+                name="dueDate"
+                value={formData.dueDate}
+                onChange={handleChange}
+                required={formData.status !== "Draft"}
+                style={{
+                  width: "100%",
+                  padding: "0.5rem",
+                  borderRadius: "0.375rem",
+                  border: "1px solid #cbd5e1",
+                }}
+              />
             </div>
             <div>
               <label
