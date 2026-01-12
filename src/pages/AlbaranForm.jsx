@@ -5,7 +5,7 @@ import { useLanguage } from "../context/LanguageContext";
 import { useConfig } from "../context/ConfigContext";
 import { useNotification } from "../context/NotificationContext";
 
-const BudgetForm = () => {
+const AlbaranForm = () => {
   const { t } = useLanguage();
   const { config } = useConfig();
   const navigate = useNavigate();
@@ -73,23 +73,32 @@ const BudgetForm = () => {
   }, [config.timezone]);
 
   const [formData, setFormData] = useState({
-    serie: "P2025",
-    budgetNumber: "",
+    serie: "AL2025",
+    AlbaranNumber: "",
     client: "",
-    clientName: "", // Temporary for searching
+    clientName: "",
     services: [],
-    totalAmount: 0,
     status: "Draft",
+    orderNumber: "",
+    ourDocumentNumber: "",
     date: "",
-    dueDate: "",
-    paymentTerms: "1 day",
-    paymentTermsManual: "",
   });
+
+  // Reactive initialization for NEW albaranes
+  useEffect(() => {
+    if (!isEditMode && config.timezone && !formData.date) {
+      const today = getTodayStr();
+      setFormData((prev) => ({
+        ...prev,
+        date: prev.date || today,
+      }));
+    }
+  }, [config.timezone, isEditMode, formData.date, getTodayStr]);
 
   const [clients, setClients] = useState([]);
   const [filteredClients, setFilteredClients] = useState([]);
   const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false);
-  const [clientMode, setClientMode] = useState("existing"); // 'existing' | 'new'
+  const [clientMode, setClientMode] = useState("existing");
   const [newClientData, setNewClientData] = useState({
     name: "",
     nif: "",
@@ -117,44 +126,21 @@ const BudgetForm = () => {
     fetchClients();
   }, []);
 
-  // Reactive initialization for NEW budgets
   useEffect(() => {
-    if (
-      !isEditMode &&
-      config.timezone &&
-      (!formData.date || !formData.dueDate)
-    ) {
-      const today = getTodayStr();
-      setFormData((prev) => ({
-        ...prev,
-        date: prev.date || today,
-        dueDate: prev.dueDate || today,
-      }));
-    }
-  }, [
-    config.timezone,
-    isEditMode,
-    formData.date,
-    formData.dueDate,
-    getTodayStr,
-  ]);
-
-  useEffect(() => {
-    const fetchBudget = async () => {
+    const fetchAlbaran = async () => {
       if (!isEditMode) {
         try {
-          // Fetch next number if a serie is selected
           if (formData.serie) {
             const res = await api.get(
-              `/budgets/next-number?serie=${formData.serie}`
+              `/albaranes/next-number?serie=${formData.serie}`
             );
             setFormData((prev) => ({
               ...prev,
-              budgetNumber: res.data.nextNumber,
+              AlbaranNumber: res.data.nextNumber,
             }));
           }
         } catch (err) {
-          console.error("Error fetching next budget number:", err);
+          console.error("Error fetching next albaran number:", err);
         }
         setIsLoading(false);
         return;
@@ -162,8 +148,8 @@ const BudgetForm = () => {
 
       setIsLoading(true);
       try {
-        const response = await api.get(`/budgets/${id}`);
-        const budget = response.data;
+        const response = await api.get(`/albaranes/${id}`);
+        const albaran = response.data;
         const formatDate = (date) => {
           if (!date) return "";
           return new Intl.DateTimeFormat("en-CA", {
@@ -174,75 +160,28 @@ const BudgetForm = () => {
           }).format(new Date(date));
         };
 
-        const formattedDate = formatDate(budget.date);
-        const formattedDueDate = formatDate(budget.dueDate);
-
         setFormData({
-          ...budget,
-          date: formattedDate || getTodayStr(),
-          dueDate: formattedDueDate || getTodayStr(),
-          client: budget.client?._id || budget.client || "",
-          clientName: budget.client?.name || "",
-          paymentTerms: budget.paymentTerms || "1 day",
-          paymentTermsManual: budget.paymentTermsManual || "",
+          ...albaran,
+          date: formatDate(albaran.date) || getTodayStr(),
+          client: albaran.client?._id || albaran.client || "",
+          clientName: albaran.client?.name || "",
         });
 
-        if (budget.client) setClientMode("existing");
+        if (albaran.client) setClientMode("existing");
       } catch (err) {
-        console.error("Error fetching budget:", err);
+        console.error("Error fetching albaran:", err);
         showNotification(t("error"), "error");
       } finally {
         setIsLoading(false);
       }
     };
-    fetchBudget();
+    fetchAlbaran();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, isEditMode, formData.serie]);
-
-  useEffect(() => {
-    const total = formData.services.reduce((acc, service) => {
-      const base = parseFloat(service.taxBase) || 0;
-      const quantity = parseFloat(service.quantity) || 0;
-      const discount = parseFloat(service.discount) || 0;
-      const ivaPercent = parseFloat(service.iva) || 0;
-
-      const subtotal = base * quantity;
-      const discountAmount = subtotal * (discount / 100);
-      const taxableAmount = subtotal - discountAmount;
-      const ivaAmount = taxableAmount * (ivaPercent / 100);
-
-      return acc + taxableAmount + ivaAmount;
-    }, 0);
-    setFormData((prev) => ({
-      ...prev,
-      totalAmount: parseFloat(total.toFixed(2)),
-    }));
-  }, [formData.services]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
-  };
-
-  const handleTermChange = (e) => {
-    const term = e.target.value;
-
-    let newDueDate = formData.dueDate;
-    if (term !== "Manual" && term !== "custom") {
-      const days = parseInt(term.split(" ")[0]);
-      const baseDate = formData.date ? new Date(formData.date) : new Date();
-      if (!isNaN(days)) {
-        const d = new Date(baseDate);
-        d.setDate(d.getDate() + days);
-        newDueDate = d.toISOString().split("T")[0];
-      }
-    }
-
-    setFormData((prev) => ({
-      ...prev,
-      paymentTerms: term,
-      dueDate: newDueDate,
-    }));
   };
 
   const handleClientNameChange = (e) => {
@@ -285,11 +224,16 @@ const BudgetForm = () => {
   };
 
   const addService = () => {
+    const lastNumber =
+      formData.services.length > 0
+        ? Math.max(...formData.services.map((s) => parseInt(s.number) || 0))
+        : 0;
+
     setFormData({
       ...formData,
       services: [
         ...formData.services,
-        { concept: "", quantity: 1, taxBase: 0, discount: 0, iva: 21 },
+        { concept: "", quantity: 1, number: lastNumber + 1 },
       ],
     });
   };
@@ -336,21 +280,18 @@ const BudgetForm = () => {
     const payload = {
       ...finalFormData,
       date: combineDateWithCurrentTime(finalFormData.date || getTodayStr()),
-      dueDate: combineDateWithCurrentTime(
-        finalFormData.dueDate || getTodayStr()
-      ),
     };
 
     try {
       if (isEditMode) {
-        await api.put(`/budgets/${id}`, payload);
+        await api.put(`/albaranes/${id}`, payload);
       } else {
-        await api.post("/budgets", payload);
+        await api.post("/albaranes", payload);
       }
       showNotification(t("changesSaved"), "success");
-      navigate("/budgets");
+      navigate("/albaranes");
     } catch (err) {
-      console.error("Error saving budget:", err);
+      console.error("Error saving albaran:", err);
       setFormError(err.response?.data?.message || err.message);
     }
   };
@@ -359,16 +300,16 @@ const BudgetForm = () => {
     return <div className="container">{t("loading")}</div>;
 
   return (
-    <div style={{ maxWidth: "800px", margin: "0 auto" }}>
+    <div style={{ maxWidth: "1000px", margin: "0 auto" }}>
       <div
         className="flex justify-between items-center"
         style={{ marginBottom: "1.5rem" }}
       >
         <h2 style={{ fontSize: "1.5rem", fontWeight: "600" }}>
-          {isEditMode ? t("editBudget") : t("newBudget")}
+          {isEditMode ? t("editAlbaran") : t("newAlbaran")}
         </h2>
         <button
-          onClick={() => navigate("/budgets")}
+          onClick={() => navigate("/albaranes")}
           className="btn btn-secondary"
         >
           {t("cancel")}
@@ -408,7 +349,7 @@ const BudgetForm = () => {
               marginBottom: "1.5rem",
             }}
           >
-            {/* Client Section First */}
+            {/* Client Section */}
             <div style={{ gridColumn: "span 2" }}>
               <div
                 style={{
@@ -565,6 +506,7 @@ const BudgetForm = () => {
                     gap: "1rem",
                   }}
                 >
+                  {/* ... Same as BudgetForm new client fields ... */}
                   <div style={{ gridColumn: "span 2" }}>
                     <label
                       style={{
@@ -620,54 +562,6 @@ const BudgetForm = () => {
                     />
                   </div>
                   <div>
-                    <label
-                      style={{
-                        display: "block",
-                        marginBottom: "0.5rem",
-                        fontWeight: "500",
-                        color: "var(--color-text-secondary)",
-                      }}
-                    >
-                      {t("email")}
-                    </label>
-                    <input
-                      type="email"
-                      name="email"
-                      value={newClientData.email}
-                      onChange={handleNewClientChange}
-                      style={{
-                        width: "100%",
-                        padding: "0.5rem",
-                        borderRadius: "0.375rem",
-                        border: "1px solid #cbd5e1",
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <label
-                      style={{
-                        display: "block",
-                        marginBottom: "0.5rem",
-                        fontWeight: "500",
-                        color: "var(--color-text-secondary)",
-                      }}
-                    >
-                      {t("phone")}
-                    </label>
-                    <input
-                      type="text"
-                      name="phone"
-                      value={newClientData.phone}
-                      onChange={handleNewClientChange}
-                      style={{
-                        width: "100%",
-                        padding: "0.5rem",
-                        borderRadius: "0.375rem",
-                        border: "1px solid #cbd5e1",
-                      }}
-                    />
-                  </div>
-                  <div style={{ gridColumn: "span 2" }}>
                     <label
                       style={{
                         display: "block",
@@ -807,20 +701,16 @@ const BudgetForm = () => {
                 name="serie"
                 value={formData.serie}
                 onChange={handleChange}
-                disabled={formData.status === "Draft"}
                 style={{
                   width: "100%",
                   padding: "0.5rem",
                   borderRadius: "0.375rem",
                   border: "1px solid #cbd5e1",
-                  backgroundColor:
-                    formData.status === "Draft" ? "#f3f4f6" : "white",
-                  cursor:
-                    formData.status === "Draft" ? "not-allowed" : "default",
+                  backgroundColor: "white",
                 }}
               >
-                <option value="P2025">P2025</option>
-                <option value="P2026">P2026</option>
+                <option value="AL2025">AL2025</option>
+                <option value="AL2026">AL2026</option>
               </select>
             </div>
             <div>
@@ -832,25 +722,24 @@ const BudgetForm = () => {
                   color: "var(--color-text-secondary)",
                 }}
               >
-                {t("budgetNumber")}
+                {t("albaranNumber")}
               </label>
               <input
                 type="number"
-                name="budgetNumber"
-                value={formData.budgetNumber}
+                name="AlbaranNumber"
+                value={formData.AlbaranNumber}
                 onChange={handleChange}
-                required={formData.status !== "Draft"}
                 style={{
                   width: "100%",
                   padding: "0.5rem",
                   borderRadius: "0.375rem",
                   border: "1px solid #cbd5e1",
                   backgroundColor: "#f3f4f6",
-                  cursor: "not-allowed",
                 }}
                 readOnly
               />
             </div>
+
             <div>
               <label
                 style={{
@@ -860,76 +749,20 @@ const BudgetForm = () => {
                   color: "var(--color-text-secondary)",
                 }}
               >
-                {t("paymentTerms")}
-              </label>
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "0.5rem",
-                }}
-              >
-                <select
-                  name="paymentTerms"
-                  value={formData.paymentTerms}
-                  onChange={handleTermChange}
-                  style={{
-                    width: "100%",
-                    padding: "0.5rem",
-                    borderRadius: "0.375rem",
-                    border: "1px solid #cbd5e1",
-                    backgroundColor: "white",
-                  }}
-                >
-                  <option value="1 day">1 {t("day")}</option>
-                  <option value="7 days">7 {t("days")}</option>
-                  <option value="15 days">15 {t("days")}</option>
-                  <option value="30 days">30 {t("days")}</option>
-                  <option value="45 days">45 {t("days")}</option>
-                  <option value="60 days">60 {t("days")}</option>
-                  <option value="Manual">{t("manual")}</option>
-                </select>
-                {formData.paymentTerms === "Manual" && (
-                  <input
-                    type="text"
-                    name="paymentTermsManual"
-                    value={formData.paymentTermsManual}
-                    onChange={handleChange}
-                    placeholder={t("paymentTermsManualPlaceholder")}
-                    required={formData.status !== "Draft"}
-                    style={{
-                      width: "100%",
-                      padding: "0.5rem",
-                      borderRadius: "0.375rem",
-                      border: "1px solid #cbd5e1",
-                    }}
-                  />
-                )}
-              </div>
-            </div>
-            <div>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: "0.5rem",
-                  fontWeight: "500",
-                  color: "var(--color-text-secondary)",
-                }}
-              >
-                {t("dueDate")}
+                {t("date")}
               </label>
               <input
                 type="date"
-                name="dueDate"
-                value={formData.dueDate}
+                name="date"
+                value={formData.date}
                 onChange={handleChange}
-                required={formData.status !== "Draft"}
                 style={{
                   width: "100%",
                   padding: "0.5rem",
                   borderRadius: "0.375rem",
                   border: "1px solid #cbd5e1",
                 }}
+                required
               />
             </div>
             <div>
@@ -958,15 +791,67 @@ const BudgetForm = () => {
                 <option value="Done">{t("statusDone")}</option>
               </select>
             </div>
+
+            <div>
+              <label
+                style={{
+                  display: "block",
+                  marginBottom: "0.5rem",
+                  fontWeight: "500",
+                  color: "var(--color-text-secondary)",
+                }}
+              >
+                {t("orderNumber")}
+              </label>
+              <input
+                type="text"
+                name="orderNumber"
+                value={formData.orderNumber}
+                onChange={handleChange}
+                style={{
+                  width: "100%",
+                  padding: "0.5rem",
+                  borderRadius: "0.375rem",
+                  border: "1px solid #cbd5e1",
+                }}
+              />
+            </div>
+            <div>
+              <label
+                style={{
+                  display: "block",
+                  marginBottom: "0.5rem",
+                  fontWeight: "500",
+                  color: "var(--color-text-secondary)",
+                }}
+              >
+                {t("ourDocumentNumber")}
+              </label>
+              <input
+                type="text"
+                name="ourDocumentNumber"
+                value={formData.ourDocumentNumber}
+                onChange={handleChange}
+                style={{
+                  width: "100%",
+                  padding: "0.5rem",
+                  borderRadius: "0.375rem",
+                  border: "1px solid #cbd5e1",
+                }}
+              />
+            </div>
           </div>
 
-          <div style={{ marginBottom: "1.5rem" }}>
+          {/* Services Section */}
+          <div style={{ marginTop: "2rem" }}>
             <div
               style={{
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
                 marginBottom: "1rem",
+                paddingBottom: "0.5rem",
+                borderBottom: "2px solid #f1f5f9",
               }}
             >
               <h3 style={{ fontSize: "1.1rem", fontWeight: "600" }}>
@@ -977,122 +862,68 @@ const BudgetForm = () => {
                 onClick={addService}
                 className="btn btn-secondary btn-sm"
               >
-                + {t("addService")}
+                + {t("addService") || "Add Service"}
               </button>
             </div>
 
-            {formData.services.length > 0 && (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "80px 100px 1fr 50px",
+                gap: "1rem",
+                marginBottom: "0.5rem",
+                padding: "0 0.5rem",
+              }}
+            >
               <div
                 style={{
-                  display: "grid",
-                  gridTemplateColumns: "0.8fr 3.2fr 0.8fr 1.6fr 1fr 1fr 0.5fr",
-                  gap: "0.5rem",
-                  marginBottom: "0.5rem",
-                  paddingRight: "0.5rem",
+                  fontSize: "0.8rem",
+                  fontWeight: "600",
+                  color: "#64748b",
                 }}
               >
-                <label
-                  style={{
-                    fontSize: "0.85rem",
-                    fontWeight: "600",
-                    color: "var(--color-text-secondary)",
-                    paddingLeft: "0.5rem",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {t("number")}
-                </label>
-                <label
-                  style={{
-                    fontSize: "0.85rem",
-                    fontWeight: "600",
-                    color: "var(--color-text-secondary)",
-                    paddingLeft: "0.5rem",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {t("concept")}
-                </label>
-                <label
-                  style={{
-                    fontSize: "0.85rem",
-                    fontWeight: "600",
-                    color: "var(--color-text-secondary)",
-                    paddingLeft: "0.5rem",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {t("quantity")}
-                </label>
-                <label
-                  style={{
-                    fontSize: "0.85rem",
-                    fontWeight: "600",
-                    color: "var(--color-text-secondary)",
-                    paddingLeft: "0.5rem",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {t("taxBase")}
-                </label>
-                <label
-                  style={{
-                    fontSize: "0.85rem",
-                    fontWeight: "600",
-                    color: "var(--color-text-secondary)",
-                    paddingLeft: "0.5rem",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {t("discount")}
-                </label>
-                <label
-                  style={{
-                    fontSize: "0.85rem",
-                    fontWeight: "600",
-                    color: "var(--color-text-secondary)",
-                    paddingLeft: "0.5rem",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {t("iva")}
-                </label>
-                <div></div>
+                Nº
               </div>
-            )}
+              <div
+                style={{
+                  fontSize: "0.8rem",
+                  fontWeight: "600",
+                  color: "#64748b",
+                }}
+              >
+                {t("quantity")}
+              </div>
+              <div
+                style={{
+                  fontSize: "0.8rem",
+                  fontWeight: "600",
+                  color: "#64748b",
+                }}
+              >
+                {t("description")}
+              </div>
+              <div></div>
+            </div>
 
             {formData.services.map((service, index) => (
               <div
                 key={index}
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "0.8fr 3.2fr 0.8fr 1.6fr 1fr 1fr 0.5fr",
-                  gap: "0.5rem",
-                  marginBottom: "0.5rem",
-                  alignItems: "center",
-                  borderBottom: "1px solid #f1f5f9",
-                  paddingBottom: "0.5rem",
+                  gridTemplateColumns: "80px 100px 1fr 50px",
+                  gap: "1rem",
+                  marginBottom: "1rem",
+                  alignItems: "start",
+                  backgroundColor: "#f8fafc",
+                  padding: "1rem",
+                  borderRadius: "0.5rem",
                 }}
               >
                 <input
                   type="number"
                   name="number"
-                  value={service.number || ""}
+                  value={service.number}
                   onChange={(e) => handleServiceChange(index, e)}
-                  placeholder="Nº"
-                  style={{
-                    width: "100%",
-                    padding: "0.5rem",
-                    borderRadius: "0.375rem",
-                    border: "1px solid #cbd5e1",
-                  }}
-                />
-                <input
-                  type="text"
-                  name="concept"
-                  value={service.concept}
-                  onChange={(e) => handleServiceChange(index, e)}
-                  required={formData.status !== "Draft"}
                   style={{
                     width: "100%",
                     padding: "0.5rem",
@@ -1105,181 +936,44 @@ const BudgetForm = () => {
                   name="quantity"
                   value={service.quantity}
                   onChange={(e) => handleServiceChange(index, e)}
-                  required={formData.status !== "Draft"}
                   style={{
                     width: "100%",
                     padding: "0.5rem",
                     borderRadius: "0.375rem",
                     border: "1px solid #cbd5e1",
                   }}
+                  required
                 />
-                <input
-                  type="number"
-                  step="0.01"
-                  name="taxBase"
-                  value={service.taxBase}
+                <textarea
+                  name="concept"
+                  value={service.concept}
                   onChange={(e) => handleServiceChange(index, e)}
-                  required={formData.status !== "Draft"}
+                  rows="2"
                   style={{
                     width: "100%",
                     padding: "0.5rem",
                     borderRadius: "0.375rem",
                     border: "1px solid #cbd5e1",
+                    fontFamily: "inherit",
                   }}
-                />
-                <input
-                  type="number"
-                  step="0.01"
-                  name="discount"
-                  value={service.discount}
-                  onChange={(e) => handleServiceChange(index, e)}
-                  style={{
-                    width: "100%",
-                    padding: "0.5rem",
-                    borderRadius: "0.375rem",
-                    border: "1px solid #cbd5e1",
-                  }}
-                />
-                <input
-                  type="number"
-                  step="0.01"
-                  name="iva"
-                  value={service.iva}
-                  onChange={(e) => handleServiceChange(index, e)}
-                  required={formData.status !== "Draft"}
-                  style={{
-                    width: "100%",
-                    padding: "0.5rem",
-                    borderRadius: "0.375rem",
-                    border: "1px solid #cbd5e1",
-                  }}
+                  required
                 />
                 <button
                   type="button"
                   onClick={() => removeService(index)}
                   style={{
+                    padding: "0.5rem",
                     color: "#ef4444",
                     background: "none",
                     border: "none",
                     cursor: "pointer",
-                    fontWeight: "bold",
-                    fontSize: "1.2rem",
+                    marginTop: "0.25rem",
                   }}
                 >
-                  ×
+                  ✕
                 </button>
               </div>
             ))}
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "flex-end",
-              borderTop: "1px solid #e2e8f0",
-              paddingTop: "1.5rem",
-            }}
-          >
-            <div style={{ width: "300px" }}>
-              {(() => {
-                const subtotal = formData.services.reduce(
-                  (acc, s) =>
-                    acc +
-                    (parseFloat(s.taxBase) || 0) *
-                      (parseFloat(s.quantity) || 1),
-                  0
-                );
-                const discountTotal = formData.services.reduce((acc, s) => {
-                  const base = parseFloat(s.taxBase) || 0;
-                  const quantity = parseFloat(s.quantity) || 1;
-                  const discount = parseFloat(s.discount) || 0;
-                  return acc + base * quantity * (discount / 100);
-                }, 0);
-                const taxableBase = subtotal - discountTotal;
-                const ivaTotal = formData.services.reduce((acc, s) => {
-                  const base = parseFloat(s.taxBase) || 0;
-                  const quantity = parseFloat(s.quantity) || 1;
-                  const discount = parseFloat(s.discount) || 0;
-                  const iva = parseFloat(s.iva) || 0;
-                  return (
-                    acc +
-                    (base * quantity - base * quantity * (discount / 100)) *
-                      (iva / 100)
-                  );
-                }, 0);
-
-                return (
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: "0.5rem",
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        fontSize: "0.9rem",
-                        color: "#64748b",
-                      }}
-                    >
-                      <span>{t("subtotal")}:</span>
-                      <span>€{subtotal.toFixed(2)}</span>
-                    </div>
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        fontSize: "0.9rem",
-                        color: "#64748b",
-                      }}
-                    >
-                      <span>{t("discount")}:</span>
-                      <span>-€{discountTotal.toFixed(2)}</span>
-                    </div>
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        fontSize: "0.9rem",
-                        color: "#1e293b",
-                        fontWeight: "600",
-                      }}
-                    >
-                      <span>{t("taxBase")}:</span>
-                      <span>€{taxableBase.toFixed(2)}</span>
-                    </div>
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        fontSize: "0.9rem",
-                        color: "#64748b",
-                      }}
-                    >
-                      <span>IVA %:</span>
-                      <span>€{ivaTotal.toFixed(2)}</span>
-                    </div>
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        fontSize: "1.25rem",
-                        fontWeight: "700",
-                        color: "var(--color-primary)",
-                        borderTop: "2px solid #e2e8f0",
-                        marginTop: "0.5rem",
-                        paddingTop: "0.5rem",
-                      }}
-                    >
-                      <span>Total:</span>
-                      <span>€{formData.totalAmount.toFixed(2)}</span>
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
           </div>
 
           <div style={{ marginTop: "2rem" }}>
@@ -1288,7 +982,7 @@ const BudgetForm = () => {
               className="btn btn-primary"
               style={{ width: "100%", padding: "0.75rem" }}
             >
-              {t("save")}
+              {isEditMode ? t("updateAlbaran") : t("createAlbaran")}
             </button>
           </div>
         </form>
@@ -1297,4 +991,4 @@ const BudgetForm = () => {
   );
 };
 
-export default BudgetForm;
+export default AlbaranForm;

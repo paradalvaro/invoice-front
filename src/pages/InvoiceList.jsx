@@ -3,12 +3,14 @@ import { Link } from "react-router-dom";
 import api from "../api/axios";
 //import useAuth from "../hooks/useAuth";
 import { useLanguage } from "../context/LanguageContext";
-
+import { useConfig } from "../context/ConfigContext";
 import { useNotification } from "../context/NotificationContext";
 
 const baseURL = import.meta.env.VITE_SERVER_URL;
 
 const InvoiceList = () => {
+  const { t, language } = useLanguage();
+  const { config } = useConfig();
   const [invoices, setInvoices] = useState([]);
   const [pagination, setPagination] = useState({
     currentPage: 1,
@@ -28,7 +30,6 @@ const InvoiceList = () => {
   const [selectedInvoiceId, setSelectedInvoiceId] = useState(null);
   const [recipientEmails, setRecipientEmails] = useState("");
 
-  const { t } = useLanguage();
   const { showNotification } = useNotification();
 
   const fetchInvoices = async () => {
@@ -109,9 +110,9 @@ const InvoiceList = () => {
     );
   };
 
-  const handleSendEmail = (id) => {
+  const handleSendEmail = (id, defaultEmail = "") => {
     setSelectedInvoiceId(id);
-    setRecipientEmails("");
+    setRecipientEmails(defaultEmail);
     setIsEmailModalOpen(true);
   };
 
@@ -809,7 +810,7 @@ const InvoiceList = () => {
                       timeZone: "America/Caracas",
                     })*/
                         new Date(invoice.date).toLocaleDateString("es-ES", {
-                          timeZone: "Europe/Madrid",
+                          timeZone: config.timezone || "Europe/Madrid",
                         })
                       : "-"}
                   </td>
@@ -830,7 +831,7 @@ const InvoiceList = () => {
                         ? new Date(invoice.dueDate).toLocaleDateString(
                             "es-ES",
                             {
-                              timeZone: "Europe/Madrid",
+                              timeZone: config.timezone || "Europe/Madrid",
                             }
                           )
                         : "-"
@@ -875,7 +876,12 @@ const InvoiceList = () => {
                         </svg>
                       </button>
                       <button
-                        onClick={() => handleSendEmail(invoice._id)}
+                        onClick={() =>
+                          handleSendEmail(
+                            invoice._id,
+                            invoice.client?.email || ""
+                          )
+                        }
                         style={{
                           padding: "0.5rem",
                           fontSize: "0.8rem",

@@ -5,8 +5,8 @@ import { useLanguage } from "../context/LanguageContext";
 import { useConfig } from "../context/ConfigContext";
 import { useNotification } from "../context/NotificationContext";
 
-const BudgetList = () => {
-  const [budgets, setBudgets] = useState([]);
+const AlbaranList = () => {
+  const [albaranes, setAlbaranes] = useState([]);
   const [pagination, setPagination] = useState({
     currentPage: 1,
     totalPages: 1,
@@ -15,7 +15,7 @@ const BudgetList = () => {
   const [sortBy, setSortBy] = useState("date");
   const [sortOrder, setSortOrder] = useState("desc");
   const [search, setSearch] = useState("");
-  const [searchField, setSearchField] = useState("budgetNumber");
+  const [searchField, setSearchField] = useState("AlbaranNumber");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [statusFilter, setStatusFilter] = useState("");
@@ -24,25 +24,25 @@ const BudgetList = () => {
   const { config } = useConfig();
   const { showNotification } = useNotification();
 
-  const fetchBudgets = async () => {
+  const fetchAlbaranes = async () => {
     setIsLoading(true);
     setError(null);
     try {
       const response = await api.get(
-        `/budgets?page=${pagination.currentPage}&limit=10&sortBy=${sortBy}&order=${sortOrder}&search=${search}&searchField=${searchField}&status=${statusFilter}`
+        `/albaranes?page=${pagination.currentPage}&limit=10&sortBy=${sortBy}&order=${sortOrder}&search=${search}&searchField=${searchField}&status=${statusFilter}`
       );
       if (response.data.data) {
-        setBudgets(response.data.data);
+        setAlbaranes(response.data.data);
         setPagination((prev) => ({
           ...prev,
           totalPages: response.data.totalPages,
           totalItems: response.data.totalItems,
         }));
       } else {
-        setBudgets(Array.isArray(response.data) ? response.data : []);
+        setAlbaranes(Array.isArray(response.data) ? response.data : []);
       }
     } catch (err) {
-      console.error("Error fetching budgets:", err);
+      console.error("Error fetching albaranes:", err);
       setError(t("error"));
     } finally {
       setIsLoading(false);
@@ -50,7 +50,7 @@ const BudgetList = () => {
   };
 
   useEffect(() => {
-    fetchBudgets();
+    fetchAlbaranes();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     pagination.currentPage,
@@ -74,13 +74,13 @@ const BudgetList = () => {
   const handleDownloadPDF = async (id, serie, number) => {
     try {
       showNotification(t("loading"), "info");
-      const response = await api.get(`/budgets/${id}/pdf`, {
+      const response = await api.get(`/albaranes/${id}/pdf`, {
         responseType: "blob",
       });
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement("a");
       link.href = url;
-      link.setAttribute("download", `budget-${serie}${number}.pdf`);
+      link.setAttribute("download", `albaran-${serie}${number}.pdf`);
       document.body.appendChild(link);
       link.click();
       link.parentNode.removeChild(link);
@@ -93,11 +93,11 @@ const BudgetList = () => {
   const handleDelete = async (id) => {
     if (window.confirm(t("confirmDelete"))) {
       try {
-        await api.delete(`/budgets/${id}`);
-        fetchBudgets();
+        await api.delete(`/albaranes/${id}`);
+        fetchAlbaranes();
         showNotification(t("changesSaved"), "success");
       } catch (err) {
-        console.error("Error deleting budget:", err);
+        console.error("Error deleting albaran:", err);
         showNotification(t("error"), "error");
       }
     }
@@ -136,12 +136,12 @@ const BudgetList = () => {
             </span>
           ) : (
             <h2 style={{ fontSize: "1.25rem", fontWeight: "600" }}>
-              {t("allBudgets")}
+              {t("allAlbaranes")}
             </h2>
           )}
         </div>
         <div className="flex gap-2">
-          <Link to="/budgets/new" className="btn btn-primary">
+          <Link to="/albaranes/new" className="btn btn-primary">
             + {t("new")}
           </Link>
         </div>
@@ -176,7 +176,7 @@ const BudgetList = () => {
               backgroundColor: "white",
             }}
           >
-            <option value="budgetNumber">{t("budgetNumber")}</option>
+            <option value="AlbaranNumber">{t("albaranNumber")}</option>
             <option value="status">{t("status")}</option>
           </select>
 
@@ -259,7 +259,7 @@ const BudgetList = () => {
                 </div>
               </th>
               <th
-                onClick={() => handleSort("budgetNumber")}
+                onClick={() => handleSort("AlbaranNumber")}
                 style={{
                   padding: "1rem",
                   textAlign: "left",
@@ -272,7 +272,7 @@ const BudgetList = () => {
                 }}
               >
                 <div className="flex items-center">
-                  {t("budgetNumber")} <SortIcon field="budgetNumber" />
+                  {t("albaranNumber")} <SortIcon field="AlbaranNumber" />
                 </div>
               </th>
               <th
@@ -305,23 +305,6 @@ const BudgetList = () => {
                 </div>
               </th>
               <th
-                onClick={() => handleSort("dueDate")}
-                style={{
-                  padding: "1rem",
-                  textAlign: "left",
-                  fontSize: "0.75rem",
-                  fontWeight: "600",
-                  color: "#64748b",
-                  textTransform: "uppercase",
-                  cursor: "pointer",
-                  userSelect: "none",
-                }}
-              >
-                <div className="flex items-center">
-                  {t("dueDate")} <SortIcon field="dueDate" />
-                </div>
-              </th>
-              <th
                 style={{
                   padding: "1rem",
                   textAlign: "left",
@@ -332,23 +315,6 @@ const BudgetList = () => {
                 }}
               >
                 {t("status")}
-              </th>
-              <th
-                onClick={() => handleSort("totalAmount")}
-                style={{
-                  padding: "1rem",
-                  textAlign: "left",
-                  fontSize: "0.75rem",
-                  fontWeight: "600",
-                  color: "#64748b",
-                  textTransform: "uppercase",
-                  cursor: "pointer",
-                  userSelect: "none",
-                }}
-              >
-                <div className="flex items-center justify-end">
-                  {t("totalAmount")} <SortIcon field="totalAmount" />
-                </div>
               </th>
               <th
                 style={{
@@ -365,28 +331,19 @@ const BudgetList = () => {
             </tr>
           </thead>
           <tbody>
-            {isLoading ? (
+            {!isLoading && albaranes.length === 0 ? (
               <tr>
                 <td
                   colSpan="6"
                   style={{ padding: "2rem", textAlign: "center" }}
                 >
-                  {t("loading")}
-                </td>
-              </tr>
-            ) : budgets.length === 0 ? (
-              <tr>
-                <td
-                  colSpan="6"
-                  style={{ padding: "2rem", textAlign: "center" }}
-                >
-                  {t("noBudgets")}
+                  {t("noAlbaranes")}
                 </td>
               </tr>
             ) : (
-              budgets.map((budget) => (
+              albaranes.map((albaran) => (
                 <tr
-                  key={budget._id}
+                  key={albaran._id}
                   style={{ borderBottom: "1px solid var(--color-border)" }}
                   className="hover:bg-gray-50"
                 >
@@ -397,7 +354,7 @@ const BudgetList = () => {
                     }}
                     data-label={t("serie")}
                   >
-                    {budget.serie || "-"}
+                    {albaran.serie || "-"}
                   </td>
                   <td
                     style={{
@@ -405,16 +362,16 @@ const BudgetList = () => {
                       fontSize: "0.9rem",
                       textAlign: "center",
                     }}
-                    data-label={t("budgetNumber")}
+                    data-label={t("albaranNumber")}
                   >
                     <Link
-                      to={`/budgets/${budget._id}/edit`}
+                      to={`/albaranes/${albaran._id}/edit`}
                       style={{
                         color: "var(--color-primary)",
                         fontWeight: "500",
                       }}
                     >
-                      {budget.budgetNumber}
+                      {albaran.AlbaranNumber || "-"}
                     </Link>
                   </td>
                   <td
@@ -425,24 +382,14 @@ const BudgetList = () => {
                     }}
                     data-label={t("client")}
                   >
-                    {budget.client?.name || "-"}
+                    {albaran.client?.name || "-"}
                   </td>
                   <td
                     style={{ padding: "1rem", fontSize: "0.9rem" }}
                     data-label={t("date")}
                   >
-                    {budget.date
-                      ? new Date(budget.date).toLocaleDateString("es-ES", {
-                          timeZone: config.timezone || "Europe/Madrid",
-                        })
-                      : "-"}
-                  </td>
-                  <td
-                    style={{ padding: "1rem", fontSize: "0.9rem" }}
-                    data-label={t("dueDate")}
-                  >
-                    {budget.dueDate
-                      ? new Date(budget.dueDate).toLocaleDateString("es-ES", {
+                    {albaran.date
+                      ? new Date(albaran.date).toLocaleDateString("es-ES", {
                           timeZone: config.timezone || "Europe/Madrid",
                         })
                       : "-"}
@@ -454,27 +401,17 @@ const BudgetList = () => {
                         padding: "0.2rem 0.5rem",
                         borderRadius: "4px",
                         backgroundColor:
-                          budget.status === "Done" ? "#dcfce7" : "#f3f4f6",
-                        color: budget.status === "Done" ? "#166534" : "#64748b",
+                          albaran.status === "Done" ? "#dcfce7" : "#f3f4f6",
+                        color:
+                          albaran.status === "Done" ? "#166534" : "#64748b",
                         fontWeight: "600",
                         textTransform: "uppercase",
                       }}
                     >
-                      {budget.status === "Done"
+                      {albaran.status === "Done"
                         ? t("statusDone")
                         : t("statusDraft")}
                     </span>
-                  </td>
-                  <td
-                    style={{
-                      padding: "1rem",
-                      textAlign: "right",
-                      fontSize: "0.9rem",
-                      fontWeight: "600",
-                    }}
-                    data-label={t("totalAmount")}
-                  >
-                    €{budget.totalAmount.toFixed(2)}
                   </td>
                   <td
                     style={{ padding: "1rem", textAlign: "right" }}
@@ -484,9 +421,9 @@ const BudgetList = () => {
                       <button
                         onClick={() =>
                           handleDownloadPDF(
-                            budget._id,
-                            budget.serie,
-                            budget.budgetNumber
+                            albaran._id,
+                            albaran.serie,
+                            albaran.AlbaranNumber
                           )
                         }
                         style={{
@@ -515,7 +452,7 @@ const BudgetList = () => {
                         </svg>
                       </button>
                       <Link
-                        to={`/budgets/${budget._id}/edit`}
+                        to={`/albaranes/${albaran._id}/edit`}
                         style={{
                           padding: "0.5rem",
                           fontSize: "0.8rem",
@@ -541,7 +478,7 @@ const BudgetList = () => {
                         </svg>
                       </Link>
                       <button
-                        onClick={() => handleDelete(budget._id)}
+                        onClick={() => handleDelete(albaran._id)}
                         style={{
                           padding: "0.5rem",
                           fontSize: "0.8rem",
@@ -579,7 +516,7 @@ const BudgetList = () => {
         </table>
       </div>
 
-      {/* Pagination (Simplified) */}
+      {/* Pagination */}
       <div
         style={{
           marginTop: "1rem",
@@ -622,4 +559,4 @@ const BudgetList = () => {
   );
 };
 
-export default BudgetList;
+export default AlbaranList;

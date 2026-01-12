@@ -1,39 +1,78 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import api from "../api/axios";
 import { useLanguage } from "../context/LanguageContext";
+import { useConfig } from "../context/ConfigContext";
 
 const InvoiceForm = () => {
   const { t } = useLanguage();
+  const { config } = useConfig();
   const navigate = useNavigate();
   const location = useLocation();
   const { id } = useParams();
   const isRectifyMode = location.pathname.endsWith("/rectify");
   const isEditMode = !!id && !isRectifyMode;
 
-  // Helper to combine a YYYY-MM-DD string with the current local time in Madrid
-  const combineDateWithCurrentTime = (dateStr) => {
-    if (!dateStr) return null;
-    const [year, month, day] = dateStr.split("-").map(Number);
-    // Create the date object in the local timezone first
-    const combined = new Date();
-    combined.setFullYear(year);
-    combined.setMonth(month - 1);
-    combined.setDate(day);
-    // Keep current hours/minutes/seconds
-    return combined.toISOString();
-  };
+  // Helper to combine a YYYY-MM-DD string with the current time in the target timezone
+  const combineDateWithCurrentTime = useCallback(
+    (dateStr) => {
+      if (!dateStr) return null;
+      const targetTz = config.timezone || "Europe/Madrid";
 
-  const getTodayStr = () => {
+      // 1. Get current time parts in target timezone
+      const now = new Date();
+      const formatter = new Intl.DateTimeFormat("en-GB", {
+        timeZone: targetTz,
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false,
+      });
+      const nowInTz = formatter.format(now); // "HH:mm:ss"
+
+      // 2. Create a Date object representing that time in the target timezone
+      // We can use the dateStr + time + offset, but finding the offset is tricky.
+      // Safest way: Create local date, format it to see the shift, and adjust.
+      const temp = new Date(`${dateStr}T${nowInTz}`);
+      const parts = new Intl.DateTimeFormat("en-US", {
+        timeZone: targetTz,
+        hour12: false,
+        year: "numeric",
+        month: "numeric",
+        day: "numeric",
+        hour: "numeric",
+        minute: "numeric",
+        second: "numeric",
+      }).formatToParts(temp);
+
+      const p = parts.reduce(
+        (acc, part) => ({ ...acc, [part.type]: part.value }),
+        {}
+      );
+      const dateFormatted = `${p.year}-${p.month.padStart(
+        2,
+        "0"
+      )}-${p.day.padStart(2, "0")}T${p.hour.padStart(
+        2,
+        "0"
+      )}:${p.minute.padStart(2, "0")}:${p.second.padStart(2, "0")}`;
+
+      const diff = temp.getTime() - new Date(dateFormatted).getTime();
+      return new Date(temp.getTime() + diff).toISOString();
+    },
+    [config.timezone]
+  );
+
+  const getTodayStr = useCallback(() => {
     const now = new Date();
     const formatter = new Intl.DateTimeFormat("en-CA", {
-      timeZone: "Europe/Madrid",
+      timeZone: config.timezone || "Europe/Madrid",
       year: "numeric",
       month: "2-digit",
       day: "2-digit",
     });
     return formatter.format(now);
-  };
+  }, [config.timezone]);
 
   const [formData, setFormData] = useState({
     serie: location.pathname.endsWith("/rectify") ? "R2025" : "A2025",
@@ -45,9 +84,32 @@ const InvoiceForm = () => {
     services: [],
     totalAmount: 0,
     status: "Pending",
-    date: getTodayStr(),
-    dueDate: getTodayStr(),
+    date: "",
+    dueDate: "",
+    externalDocumentNumber: "",
   });
+
+  // Reactive initialization for NEW invoices
+  useEffect(() => {
+    if (
+      !isEditMode &&
+      config.timezone &&
+      (!formData.date || !formData.dueDate)
+    ) {
+      const today = getTodayStr();
+      setFormData((prev) => ({
+        ...prev,
+        date: prev.date || today,
+        dueDate: prev.dueDate || today,
+      }));
+    }
+  }, [
+    config.timezone,
+    isEditMode,
+    formData.date,
+    formData.dueDate,
+    getTodayStr,
+  ]);
   const [clients, setClients] = useState([]);
   const [filteredClients, setFilteredClients] = useState([]);
   const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false);
@@ -80,7 +142,7 @@ const InvoiceForm = () => {
       const formatDate = (date) => {
         if (!date) return "";
         return new Intl.DateTimeFormat("en-CA", {
-          timeZone: "Europe/Madrid",
+          timeZone: config.timezone || "Europe/Madrid",
           year: "numeric",
           month: "2-digit",
           day: "2-digit",
@@ -1116,6 +1178,32 @@ const InvoiceForm = () => {
               />
             </div>
 
+            <div>
+              <label
+                style={{
+                  display: "block",
+                  marginBottom: "0.5rem",
+                  fontWeight: "500",
+                  color: "var(--color-text-secondary)",
+                }}
+              >
+                {t("externalDocumentNumber") || "External Document #"}
+              </label>
+              <input
+                type="text"
+                name="externalDocumentNumber"
+                value={formData.externalDocumentNumber || ""}
+                onChange={handleChange}
+                placeholder="000000"
+                style={{
+                  width: "100%",
+                  padding: "0.5rem",
+                  borderRadius: "0.375rem",
+                  border: "1px solid #cbd5e1",
+                }}
+              />
+            </div>
+
             {/* <div>
               <label
                 style={{
@@ -1235,25 +1323,20 @@ const InvoiceForm = () => {
               <div
                 style={{
                   display: "flex",
-                  justifyContent: "between",
+                  justifyContent: "space-between",
                   alignItems: "center",
                   marginBottom: "1rem",
+                  borderBottom: "1px solid #e2e8f0",
+                  paddingBottom: "1rem",
                 }}
               >
-                <h3
-                  style={{
-                    fontSize: "1.1rem",
-                    fontWeight: "600",
-                    paddingRight: "0.5rem",
-                  }}
-                >
+                <h3 style={{ fontSize: "1.1rem", fontWeight: "600" }}>
                   {t("services")}
                 </h3>
                 <button
                   type="button"
                   onClick={addService}
-                  className="btn btn-secondary"
-                  style={{ padding: "0.25rem 0.75rem", fontSize: "0.875rem" }}
+                  className="btn btn-secondary btn-sm"
                 >
                   + {t("addService")}
                 </button>
@@ -1263,7 +1346,8 @@ const InvoiceForm = () => {
                 <div
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "3fr 0.8fr 1.2fr 1fr 1fr 0.5fr",
+                    gridTemplateColumns:
+                      "0.8fr 3.2fr 0.8fr 1.6fr 1fr 1fr 0.5fr",
                     gap: "0.5rem",
                     marginBottom: "0.5rem",
                     paddingRight: "0.5rem",
@@ -1274,6 +1358,19 @@ const InvoiceForm = () => {
                       fontSize: "0.85rem",
                       fontWeight: "600",
                       color: "var(--color-text-secondary)",
+                      paddingLeft: "0.5rem",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {t("number")}
+                  </label>
+                  <label
+                    style={{
+                      fontSize: "0.85rem",
+                      fontWeight: "600",
+                      color: "var(--color-text-secondary)",
+                      paddingLeft: "0.5rem",
+                      whiteSpace: "nowrap",
                     }}
                   >
                     {t("concept")}
@@ -1283,6 +1380,8 @@ const InvoiceForm = () => {
                       fontSize: "0.85rem",
                       fontWeight: "600",
                       color: "var(--color-text-secondary)",
+                      paddingLeft: "0.5rem",
+                      whiteSpace: "nowrap",
                     }}
                   >
                     {t("quantity")}
@@ -1292,6 +1391,8 @@ const InvoiceForm = () => {
                       fontSize: "0.85rem",
                       fontWeight: "600",
                       color: "var(--color-text-secondary)",
+                      paddingLeft: "0.5rem",
+                      whiteSpace: "nowrap",
                     }}
                   >
                     {t("taxBase")}
@@ -1301,6 +1402,8 @@ const InvoiceForm = () => {
                       fontSize: "0.85rem",
                       fontWeight: "600",
                       color: "var(--color-text-secondary)",
+                      paddingLeft: "0.5rem",
+                      whiteSpace: "nowrap",
                     }}
                   >
                     {t("discount")}
@@ -1310,6 +1413,8 @@ const InvoiceForm = () => {
                       fontSize: "0.85rem",
                       fontWeight: "600",
                       color: "var(--color-text-secondary)",
+                      paddingLeft: "0.5rem",
+                      whiteSpace: "nowrap",
                     }}
                   >
                     {t("iva")}
@@ -1323,7 +1428,8 @@ const InvoiceForm = () => {
                   key={index}
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "3fr 0.8fr 1.2fr 1fr 1fr 0.5fr",
+                    gridTemplateColumns:
+                      "0.8fr 3.2fr 0.8fr 1.6fr 1fr 1fr 0.5fr",
                     gap: "0.5rem",
                     marginBottom: "1rem",
                     paddingBottom: "1rem",
@@ -1331,6 +1437,16 @@ const InvoiceForm = () => {
                     alignItems: "center",
                   }}
                 >
+                  <div>
+                    <input
+                      type="number"
+                      name="number"
+                      value={service.number || ""}
+                      onChange={(e) => handleServiceChange(index, e)}
+                      placeholder="Nº"
+                      style={{ width: "100%" }}
+                    />
+                  </div>
                   <div>
                     <input
                       type="text"
@@ -1417,161 +1533,126 @@ const InvoiceForm = () => {
               ))}
             </div>
 
-            <div style={{ gridColumn: "1 / -1" }}>
-              {(() => {
-                const subtotal = formData.services.reduce(
-                  (acc, s) =>
-                    acc +
-                    (parseFloat(s.taxBase) || 0) *
-                      (parseFloat(s.quantity) || 1),
-                  0
-                );
-                const discountTotal = formData.services.reduce((acc, s) => {
-                  const base = parseFloat(s.taxBase) || 0;
-                  const quantity = parseFloat(s.quantity) || 1;
-                  const discount = parseFloat(s.discount) || 0;
-                  return acc + base * quantity * (discount / 100);
-                }, 0);
-                const taxableBase = subtotal - discountTotal;
-                const ivaTotal = formData.services.reduce((acc, s) => {
-                  const base = parseFloat(s.taxBase) || 0;
-                  const quantity = parseFloat(s.quantity) || 1;
-                  const discount = parseFloat(s.discount) || 0;
-                  const ivaPercent = parseFloat(s.iva) || 0;
-                  const lineSubtotal = base * quantity;
-                  const lineTaxable =
-                    lineSubtotal - lineSubtotal * (discount / 100);
-                  return acc + lineTaxable * (ivaPercent / 100);
-                }, 0);
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                borderTop: "1px solid #e2e8f0",
+                paddingTop: "1.5rem",
+                gridColumn: "1 / -1",
+              }}
+            >
+              <div style={{ width: "350px" }}>
+                {(() => {
+                  const subtotal = formData.services.reduce(
+                    (acc, s) =>
+                      acc +
+                      (parseFloat(s.taxBase) || 0) *
+                        (parseFloat(s.quantity) || 1),
+                    0
+                  );
+                  const discountTotal = formData.services.reduce((acc, s) => {
+                    const base = parseFloat(s.taxBase) || 0;
+                    const quantity = parseFloat(s.quantity) || 1;
+                    const discount = parseFloat(s.discount) || 0;
+                    return acc + base * quantity * (discount / 100);
+                  }, 0);
+                  const taxableBase = subtotal - discountTotal;
+                  const ivaTotal = formData.services.reduce((acc, s) => {
+                    const base = parseFloat(s.taxBase) || 0;
+                    const quantity = parseFloat(s.quantity) || 1;
+                    const discount = parseFloat(s.discount) || 0;
+                    const ivaPercent = parseFloat(s.iva) || 0;
+                    const lineSubtotal = base * quantity;
+                    const lineTaxable =
+                      lineSubtotal - lineSubtotal * (discount / 100);
+                    return acc + lineTaxable * (ivaPercent / 100);
+                  }, 0);
 
-                return (
-                  <div
-                    style={{
-                      backgroundColor: "#f8fafc",
-                      padding: "1.5rem",
-                      borderRadius: "8px",
-                      border: "1px solid #e2e8f0",
-                      width: "100%",
-                      maxWidth: "350px",
-                      marginLeft: "auto",
-                    }}
-                  >
-                    {discountTotal > 0 && (
+                  return (
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "0.5rem",
+                      }}
+                    >
+                      {discountTotal > 0 && (
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            fontSize: "0.9rem",
+                            color: "#64748b",
+                          }}
+                        >
+                          <span>{t("subtotal")}:</span>
+                          <span>€{subtotal.toFixed(2)}</span>
+                        </div>
+                      )}
+                      {discountTotal > 0 && (
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            fontSize: "0.9rem",
+                            color: "#64748b",
+                          }}
+                        >
+                          <span>{t("discount")}:</span>
+                          <span>-€{discountTotal.toFixed(2)}</span>
+                        </div>
+                      )}
                       <div
                         style={{
                           display: "flex",
                           justifyContent: "space-between",
-                          marginBottom: "0.5rem",
-                          color: "#64748b",
                           fontSize: "0.9rem",
+                          color: "#1e293b",
+                          fontWeight: "600",
                         }}
                       >
-                        <span>{t("subtotal")}</span>
-                        <span>
-                          {subtotal.toLocaleString("es-ES", {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}{" "}
-                          €
-                        </span>
+                        <span>{t("taxBase")}:</span>
+                        <span>€{taxableBase.toFixed(2)}</span>
                       </div>
-                    )}
-                    {discountTotal > 0 && (
                       <div
                         style={{
                           display: "flex",
                           justifyContent: "space-between",
-                          marginBottom: "0.5rem",
-                          color: "#64748b",
                           fontSize: "0.9rem",
+                          color: "#64748b",
                         }}
                       >
-                        <span>{t("discount")}</span>
-                        <span>
-                          -
-                          {discountTotal.toLocaleString("es-ES", {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}{" "}
-                          €
-                        </span>
+                        <span>IVA %:</span>
+                        <span>€{ivaTotal.toFixed(2)}</span>
                       </div>
-                    )}
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        marginBottom: "0.5rem",
-                        color: "#64748b",
-                        fontSize: "0.9rem",
-                      }}
-                    >
-                      <span>{t("taxBase")}</span>
-                      <span>
-                        {taxableBase.toLocaleString("es-ES", {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}{" "}
-                        €
-                      </span>
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          fontSize: "1.25rem",
+                          fontWeight: "700",
+                          color: "var(--color-primary)",
+                          borderTop: "2px solid #e2e8f0",
+                          marginTop: "0.5rem",
+                          paddingTop: "0.5rem",
+                        }}
+                      >
+                        <span>Total:</span>
+                        <span>€{formData.totalAmount.toFixed(2)}</span>
+                      </div>
                     </div>
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        marginBottom: "0.5rem",
-                        color: "#64748b",
-                        fontSize: "0.9rem",
-                      }}
-                    >
-                      <span>{t("iva")}</span>
-                      <span>
-                        {ivaTotal.toLocaleString("es-ES", {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}{" "}
-                        €
-                      </span>
-                    </div>
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        marginTop: "1rem",
-                        paddingTop: "1rem",
-                        borderTop: "2px solid #e2e8f0",
-                        fontWeight: "700",
-                        fontSize: "1.1rem",
-                        color: "#1e293b",
-                      }}
-                    >
-                      <span>Total</span>
-                      <span>
-                        {formData.totalAmount.toLocaleString("es-ES", {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}{" "}
-                        €
-                      </span>
-                    </div>
-                  </div>
-                );
-              })()}
+                  );
+                })()}
+              </div>
             </div>
           </div>
 
-          <div
-            style={{
-              marginTop: "2rem",
-              display: "flex",
-              justifyContent: "flex-end",
-              gap: "1rem",
-            }}
-          >
+          <div style={{ marginTop: "2rem" }}>
             <button
               type="submit"
               className="btn btn-primary"
-              style={{ padding: "0.75rem 2rem", fontSize: "1rem" }}
+              style={{ width: "100%", padding: "0.75rem" }}
             >
               {isEditMode ? t("updateInvoice") : t("createInvoice")}
             </button>

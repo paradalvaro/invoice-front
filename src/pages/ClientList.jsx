@@ -130,7 +130,6 @@ const ClientList = () => {
         </div>
       </div>
 
-      {/* Filter/Action Bar Pattern 
       <div
         className="flex justify-between items-center"
         style={{
@@ -158,7 +157,6 @@ const ClientList = () => {
           />
         </div>
       </div>
-      */}
       {/* Main Table Card */}
       <div
         style={{
@@ -179,6 +177,23 @@ const ClientList = () => {
                 backgroundColor: "white",
               }}
             >
+              <th
+                onClick={() => handleSort("clientNumber")}
+                style={{
+                  padding: "1rem",
+                  textAlign: "left",
+                  fontSize: "0.75rem",
+                  fontWeight: "600",
+                  color: "#64748b",
+                  textTransform: "uppercase",
+                  cursor: "pointer",
+                  userSelect: "none",
+                }}
+              >
+                <div className="flex items-center">
+                  {t("clientNumber")} <SortIcon field="clientNumber" />
+                </div>
+              </th>
               <th
                 onClick={() => handleSort("name")}
                 style={{
@@ -277,7 +292,7 @@ const ClientList = () => {
             {clients.length === 0 ? (
               <tr>
                 <td
-                  colSpan="6"
+                  colSpan="7"
                   style={{
                     padding: "2rem",
                     textAlign: "center",
@@ -295,8 +310,20 @@ const ClientList = () => {
                   className="hover:bg-gray-50"
                 >
                   <td
+                    style={{
+                      padding: "1rem",
+                      fontSize: "0.9rem",
+                      fontWeight: "600",
+                    }}
+                    data-label={t("clientNumber")}
+                  >
+                    {client.clientNumber
+                      ? client.clientNumber.toString().padStart(5, "0")
+                      : "-"}
+                  </td>
+                  <td
                     style={{ padding: "1rem", fontSize: "0.9rem" }}
-                    data-label={t("name")}
+                    data-label={t("clientName")}
                   >
                     {client.name}
                   </td>
