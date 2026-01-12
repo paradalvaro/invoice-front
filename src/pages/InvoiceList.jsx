@@ -367,7 +367,7 @@ const InvoiceList = () => {
 
           <input
             type="text"
-            placeholder={t("searchPlaceholder") || "Search..."}
+            placeholder={t("searchPlaceholderInvoice") || "Search..."}
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);

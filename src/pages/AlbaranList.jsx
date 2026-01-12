@@ -182,7 +182,7 @@ const AlbaranList = () => {
 
           <input
             type="text"
-            placeholder={t("searchPlaceholder") || "Search..."}
+            placeholder={t("searchPlaceholderAlbaran") || "Search..."}
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);

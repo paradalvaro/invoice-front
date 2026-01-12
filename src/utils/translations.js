@@ -44,7 +44,10 @@ export const translations = {
     loginError: "Credenciales inválidas", // Added specific error
 
     // Headers & Sidebar
-    searchPlaceholder: "Buscar en Facturas (/)",
+    searchPlaceholderInvoice: "Buscar en Facturas (/)",
+    searchPlaceholderBudget: "Buscar en Presupuestos (/)",
+    searchPlaceholderAlbaran: "Buscar en Albaranes (/)",
+    searchPlaceholderClient: "Buscar en Clientes (/)",
     home: "Inicio",
     sales: "Ventas",
     users: "Usuarios",
@@ -232,7 +235,10 @@ export const translations = {
     loginError: "Invalid credentials",
 
     // Headers & Sidebar
-    searchPlaceholder: "Search Invoices (/)",
+    searchPlaceholderInvoice: "Search Invoices (/)",
+    searchPlaceholderBudget: "Search Budgets (/)",
+    searchPlaceholderAlbaran: "Search Delivery Notes (/)",
+    searchPlaceholderClient: "Search Clients (/)",
     home: "Home",
     sales: "Sales",
     users: "Users",

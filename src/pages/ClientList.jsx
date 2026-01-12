@@ -141,7 +141,7 @@ const ClientList = () => {
         <div className="flex gap-4">
           <input
             type="text"
-            placeholder={t("searchPlaceholder")}
+            placeholder={t("searchPlaceholderClient")}
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);

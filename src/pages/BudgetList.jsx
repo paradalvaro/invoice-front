@@ -182,7 +182,7 @@ const BudgetList = () => {
 
           <input
             type="text"
-            placeholder={t("searchPlaceholder") || "Search..."}
+            placeholder={t("searchPlaceholderBudget") || "Search..."}
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
