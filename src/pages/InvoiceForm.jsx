@@ -130,6 +130,7 @@ const InvoiceForm = () => {
     city: "",
     province: "",
     country: "",
+    paymentMethod: "Transferencia",
   });
 
   const fetchInvoice = async () => {
@@ -531,7 +532,7 @@ const InvoiceForm = () => {
   }
 
   return (
-    <div style={{ maxWidth: "800px", margin: "0 auto" }}>
+    <div style={{ width: "100%", maxWidth: "1000px", margin: "0 auto" }}>
       <div
         className="flex justify-between items-center"
         style={{ marginBottom: "1.5rem" }}
@@ -901,63 +902,13 @@ const InvoiceForm = () => {
                             color: "var(--color-text-secondary)",
                           }}
                         >
-                          {t("email")}
-                        </label>
-                        <input
-                          type="email"
-                          name="email"
-                          value={newClientData.email}
-                          onChange={handleNewClientChange}
-                          style={{
-                            fontSize: "1rem",
-                            width: "100%",
-                            padding: "0.5rem",
-                            borderRadius: "0.375rem",
-                            border: "1px solid #cbd5e1",
-                          }}
-                        />
-                      </div>
-                      <div>
-                        <label
-                          style={{
-                            display: "block",
-                            marginBottom: "0.5rem",
-                            fontWeight: "500",
-                            color: "var(--color-text-secondary)",
-                          }}
-                        >
-                          {t("phone")}
-                        </label>
-                        <input
-                          type="text"
-                          name="phone"
-                          value={newClientData.phone}
-                          onChange={handleNewClientChange}
-                          style={{
-                            fontSize: "1rem",
-                            width: "100%",
-                            padding: "0.5rem",
-                            borderRadius: "0.375rem",
-                            border: "1px solid #cbd5e1",
-                          }}
-                        />
-                      </div>
-                      <div style={{ gridColumn: "span 2" }}>
-                        <label
-                          style={{
-                            display: "block",
-                            marginBottom: "0.5rem",
-                            fontWeight: "500",
-                            color: "var(--color-text-secondary)",
-                          }}
-                        >
                           {t("address")}
                         </label>
                         <textarea
                           name="address"
                           value={newClientData.address}
                           onChange={handleNewClientChange}
-                          rows="2"
+                          rows="1"
                           style={{
                             fontSize: "1rem",
                             width: "100%",
@@ -1067,6 +1018,93 @@ const InvoiceForm = () => {
                             border: "1px solid #cbd5e1",
                           }}
                         />
+                      </div>
+                      <div>
+                        <label
+                          style={{
+                            display: "block",
+                            marginBottom: "0.5rem",
+                            fontWeight: "500",
+                            color: "var(--color-text-secondary)",
+                          }}
+                        >
+                          {t("email")}
+                        </label>
+                        <input
+                          type="email"
+                          name="email"
+                          value={newClientData.email}
+                          onChange={handleNewClientChange}
+                          style={{
+                            fontSize: "1rem",
+                            width: "100%",
+                            padding: "0.5rem",
+                            borderRadius: "0.375rem",
+                            border: "1px solid #cbd5e1",
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <label
+                          style={{
+                            display: "block",
+                            marginBottom: "0.5rem",
+                            fontWeight: "500",
+                            color: "var(--color-text-secondary)",
+                          }}
+                        >
+                          {t("phone")}
+                        </label>
+                        <input
+                          type="text"
+                          name="phone"
+                          value={newClientData.phone}
+                          onChange={handleNewClientChange}
+                          style={{
+                            fontSize: "1rem",
+                            width: "100%",
+                            padding: "0.5rem",
+                            borderRadius: "0.375rem",
+                            border: "1px solid #cbd5e1",
+                          }}
+                        />
+                      </div>
+                      <div style={{ gridColumn: "span 2" }}>
+                        <label
+                          style={{
+                            display: "block",
+                            marginBottom: "0.5rem",
+                            fontWeight: "500",
+                            color: "var(--color-text-secondary)",
+                          }}
+                        >
+                          {t("paymentMethod")}
+                        </label>
+                        <select
+                          name="paymentMethod"
+                          value={newClientData.paymentMethod}
+                          onChange={handleNewClientChange}
+                          style={{
+                            fontSize: "1rem",
+                            width: "100%",
+                            padding: "0.5rem",
+                            borderRadius: "0.375rem",
+                            border: "1px solid #cbd5e1",
+                          }}
+                        >
+                          <option value="Transferencia">
+                            {t("transfer") || "Transferencia"}
+                          </option>
+                          <option value="Efectivo">
+                            {t("cash") || "Efectivo"}
+                          </option>
+                          <option value="Tarjeta">
+                            {t("card") || "Tarjeta"}
+                          </option>
+                          <option value="Domiciliación bancaria">
+                            {t("directDebit") || "Domiciliación bancaria"}
+                          </option>
+                        </select>
                       </div>
                     </div>
                   )}
