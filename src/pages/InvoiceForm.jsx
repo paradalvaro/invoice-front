@@ -86,7 +86,9 @@ const InvoiceForm = () => {
     status: "Pending",
     date: "",
     dueDate: "",
+    orderNumber: "",
     externalDocumentNumber: "",
+    paymentMethod: "Transferencia",
   });
 
   // Reactive initialization for NEW invoices
@@ -131,6 +133,8 @@ const InvoiceForm = () => {
     province: "",
     country: "",
     paymentMethod: "Transferencia",
+    paymentTerms: "1 day",
+    paymentTermsManual: "",
   });
 
   const fetchInvoice = async () => {
@@ -165,6 +169,7 @@ const InvoiceForm = () => {
         })),
         date: formattedDate,
         dueDate: formattedDueDate,
+        paymentMethod: invoice.paymentMethod || "Transferencia",
       };
 
       setFormData(updatedInvoice);
@@ -297,7 +302,7 @@ const InvoiceForm = () => {
       client: client._id,
       clientName: client.name,
       clientNIF: client.nif,
-      // Optional: fill address/email if you added those fields to Invoice model (we didn't yet, but good for UI)
+      paymentMethod: client.paymentMethod || "Transferencia",
     });
     // We can store the full selected client object in a temp state to show the card details
     // But since `formData` only stores simple fields, let's use a helper or just rely on finding it in `clients`
@@ -305,7 +310,13 @@ const InvoiceForm = () => {
   };
 
   const handleNewClientChange = (e) => {
-    setNewClientData({ ...newClientData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setNewClientData({ ...newClientData, [name]: value });
+
+    // Sync to invoice if paymentMethod changed for new client
+    if (name === "paymentMethod") {
+      setFormData((prev) => ({ ...prev, paymentMethod: value }));
+    }
   };
 
   const getSelectedClientDetails = () => {
@@ -1106,6 +1117,72 @@ const InvoiceForm = () => {
                           </option>
                         </select>
                       </div>
+
+                      <div style={{ gridColumn: "span 2" }}>
+                        <label
+                          style={{
+                            display: "block",
+                            marginBottom: "0.5rem",
+                            fontWeight: "500",
+                            color: "var(--color-text-secondary)",
+                          }}
+                        >
+                          {t("paymentTerms")}
+                        </label>
+                        <select
+                          name="paymentTerms"
+                          value={newClientData.paymentTerms}
+                          onChange={handleNewClientChange}
+                          style={{
+                            fontSize: "1rem",
+                            width: "100%",
+                            padding: "0.5rem",
+                            borderRadius: "0.375rem",
+                            border: "1px solid #cbd5e1",
+                          }}
+                        >
+                          <option value="1 day">{t("1 day")}</option>
+                          <option value="7 days">{t("7 days")}</option>
+                          <option value="15 days">{t("15 days")}</option>
+                          <option value="30 days">{t("30 days")}</option>
+                          <option value="45 days">{t("45 days")}</option>
+                          <option value="60 days">{t("60 days")}</option>
+                          <option value="Manual">{t("Manual")}</option>
+                        </select>
+                      </div>
+
+                      {newClientData.paymentTerms === "Manual" && (
+                        <div style={{ gridColumn: "span 2" }}>
+                          <label
+                            style={{
+                              display: "block",
+                              marginBottom: "0.5rem",
+                              fontWeight: "500",
+                              color: "var(--color-text-secondary)",
+                            }}
+                          >
+                            {t("paymentTermsManualPlaceholder")}
+                          </label>
+                          <input
+                            type="text"
+                            name="paymentTermsManual"
+                            value={newClientData.paymentTermsManual}
+                            onChange={handleNewClientChange}
+                            required={
+                              formData.type !== "F2" &&
+                              formData.status !== "Draft" &&
+                              clientMode === "new"
+                            }
+                            style={{
+                              fontSize: "1rem",
+                              width: "100%",
+                              padding: "0.5rem",
+                              borderRadius: "0.375rem",
+                              border: "1px solid #cbd5e1",
+                            }}
+                          />
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1225,6 +1302,33 @@ const InvoiceForm = () => {
                   color: "var(--color-text-secondary)",
                 }}
               >
+                {t("orderNumber") || "Order Number"}
+              </label>
+              <input
+                type="text"
+                name="orderNumber"
+                value={formData.orderNumber || ""}
+                onChange={handleChange}
+                required={formData.status !== "Draft"}
+                placeholder="000000"
+                style={{
+                  width: "100%",
+                  padding: "0.5rem",
+                  borderRadius: "0.375rem",
+                  border: "1px solid #cbd5e1",
+                }}
+              />
+            </div>
+
+            <div>
+              <label
+                style={{
+                  display: "block",
+                  marginBottom: "0.5rem",
+                  fontWeight: "500",
+                  color: "var(--color-text-secondary)",
+                }}
+              >
                 {t("externalDocumentNumber") || "External Document #"}
               </label>
               <input
@@ -1327,6 +1431,37 @@ const InvoiceForm = () => {
                   readOnly={paymentTerm !== "custom"}
                 />
               </div>
+            </div>
+
+            <div>
+              <label
+                style={{
+                  display: "block",
+                  marginBottom: "0.5rem",
+                  fontWeight: "500",
+                  color: "var(--color-text-secondary)",
+                }}
+              >
+                {t("paymentMethod")}
+              </label>
+              <select
+                name="paymentMethod"
+                value={formData.paymentMethod}
+                onChange={handleChange}
+                style={{
+                  width: "100%",
+                  padding: "0.5rem",
+                  borderRadius: "0.375rem",
+                  border: "1px solid #cbd5e1",
+                }}
+              >
+                <option value="Transferencia">{t("transfer")}</option>
+                <option value="Efectivo">{t("cash")}</option>
+                <option value="Tarjeta">{t("card")}</option>
+                <option value="Domiciliación bancaria">
+                  {t("directDebit")}
+                </option>
+              </select>
             </div>
 
             <div>

@@ -20,6 +20,8 @@ const ClientForm = () => {
     phone: "",
     email: "",
     paymentMethod: "Transferencia",
+    paymentTerms: "1 day",
+    paymentTermsManual: "",
   });
   const [isLoading, setIsLoading] = useState(isEditMode);
   const [error, setError] = useState(null);
@@ -280,6 +282,69 @@ const ClientForm = () => {
                 </option>
               </select>
             </div>
+
+            <div>
+              <label
+                style={{
+                  display: "block",
+                  marginBottom: "0.5rem",
+                  fontWeight: "500",
+                  color: "var(--color-text-secondary)",
+                }}
+              >
+                {t("paymentTerms")}
+              </label>
+              <select
+                name="paymentTerms"
+                value={formData.paymentTerms}
+                onChange={handleChange}
+                style={{
+                  width: "100%",
+                  padding: "0.5rem",
+                  borderRadius: "0.375rem",
+                  border: "1px solid #cbd5e1",
+                  backgroundColor: "white",
+                  marginBottom: "1rem",
+                }}
+              >
+                <option value="1 day">{t("1 day")}</option>
+                <option value="7 days">{t("7 days")}</option>
+                <option value="15 days">{t("15 days")}</option>
+                <option value="30 days">{t("30 days")}</option>
+                <option value="45 days">{t("45 days")}</option>
+                <option value="60 days">{t("60 days")}</option>
+                <option value="Manual">{t("Manual")}</option>
+              </select>
+            </div>
+
+            {formData.paymentTerms === "Manual" && (
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "0.5rem",
+                    fontWeight: "500",
+                    color: "var(--color-text-secondary)",
+                  }}
+                >
+                  {t("paymentTermsManualPlaceholder")}
+                </label>
+                <input
+                  type="text"
+                  name="paymentTermsManual"
+                  value={formData.paymentTermsManual}
+                  onChange={handleChange}
+                  required
+                  style={{
+                    width: "100%",
+                    padding: "0.5rem",
+                    borderRadius: "0.375rem",
+                    border: "1px solid #cbd5e1",
+                    marginBottom: "1rem",
+                  }}
+                />
+              </div>
+            )}
 
             <div>
               <label

@@ -101,6 +101,8 @@ const BudgetForm = () => {
     province: "",
     country: "",
     paymentMethod: "Transferencia",
+    paymentTerms: "1 day",
+    paymentTermsManual: "",
   });
 
   const [isLoading, setIsLoading] = useState(true);
@@ -261,16 +263,56 @@ const BudgetForm = () => {
   };
 
   const selectClient = (client) => {
+    // Determine payment terms: use client's terms or default to '1 day'
+    const paymentTerms = client.paymentTerms || "1 day";
+    const paymentTermsManual = client.paymentTermsManual || "";
+
+    // Calculate new due date based on client's payment terms
+    let newDueDate = formData.dueDate;
+    if (paymentTerms !== "Manual") {
+      const days = parseInt(paymentTerms.split(" ")[0]);
+      const baseDate = formData.date ? new Date(formData.date) : new Date();
+      if (!isNaN(days)) {
+        const d = new Date(baseDate);
+        d.setDate(d.getDate() + days);
+        newDueDate = d.toISOString().split("T")[0];
+      }
+    }
+
     setFormData({
       ...formData,
       client: client._id,
       clientName: client.name,
+      paymentTerms: paymentTerms,
+      paymentTermsManual: paymentTermsManual,
+      dueDate: newDueDate,
     });
     setIsClientDropdownOpen(false);
   };
 
   const handleNewClientChange = (e) => {
-    setNewClientData({ ...newClientData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setNewClientData({ ...newClientData, [name]: value });
+
+    // Real-time sync: if user changes payment terms for new client, update budget terms too
+    if (name === "paymentTerms" || name === "paymentTermsManual") {
+      let newDueDate = formData.dueDate;
+      if (name === "paymentTerms" && value !== "Manual" && value !== "custom") {
+        const days = parseInt(value.split(" ")[0]);
+        const baseDate = formData.date ? new Date(formData.date) : new Date();
+        if (!isNaN(days)) {
+          const d = new Date(baseDate);
+          d.setDate(d.getDate() + days);
+          newDueDate = d.toISOString().split("T")[0];
+        }
+      }
+
+      setFormData((prev) => ({
+        ...prev,
+        [name]: value,
+        dueDate: newDueDate,
+      }));
+    }
   };
 
   const getSelectedClientDetails = () => {
@@ -324,6 +366,10 @@ const BudgetForm = () => {
         const newClient = clientRes.data;
         setClients([...clients, newClient]);
         finalFormData.client = newClient._id;
+
+        // Use new client's terms for the budget
+        finalFormData.paymentTerms = newClient.paymentTerms || "1 day";
+        finalFormData.paymentTermsManual = newClient.paymentTermsManual || "";
       } catch (err) {
         console.error("Error creating new client:", err);
         setFormError(
@@ -824,6 +870,68 @@ const BudgetForm = () => {
                       </option>
                     </select>
                   </div>
+
+                  <div style={{ gridColumn: "span 2" }}>
+                    <label
+                      style={{
+                        display: "block",
+                        marginBottom: "0.5rem",
+                        fontWeight: "500",
+                        color: "var(--color-text-secondary)",
+                      }}
+                    >
+                      {t("paymentTerms")}
+                    </label>
+                    <select
+                      name="paymentTerms"
+                      value={newClientData.paymentTerms}
+                      onChange={handleNewClientChange}
+                      style={{
+                        width: "100%",
+                        padding: "0.5rem",
+                        borderRadius: "0.375rem",
+                        border: "1px solid #cbd5e1",
+                      }}
+                    >
+                      <option value="1 day">{t("1 day")}</option>
+                      <option value="7 days">{t("7 days")}</option>
+                      <option value="15 days">{t("15 days")}</option>
+                      <option value="30 days">{t("30 days")}</option>
+                      <option value="45 days">{t("45 days")}</option>
+                      <option value="60 days">{t("60 days")}</option>
+                      <option value="Manual">{t("Manual")}</option>
+                    </select>
+                  </div>
+
+                  {newClientData.paymentTerms === "Manual" && (
+                    <div style={{ gridColumn: "span 2" }}>
+                      <label
+                        style={{
+                          display: "block",
+                          marginBottom: "0.5rem",
+                          fontWeight: "500",
+                          color: "var(--color-text-secondary)",
+                        }}
+                      >
+                        {t("paymentTermsManualPlaceholder")}
+                      </label>
+                      <input
+                        type="text"
+                        name="paymentTermsManual"
+                        value={newClientData.paymentTermsManual}
+                        onChange={handleNewClientChange}
+                        required={
+                          formData.status !== "Draft" && clientMode === "new"
+                        }
+                        style={{
+                          width: "100%",
+                          padding: "0.5rem",
+                          borderRadius: "0.375rem",
+                          border: "1px solid #cbd5e1",
+                        }}
+                      />
+                    </div>
+                  )}
                 </div>
               )}
             </div>
