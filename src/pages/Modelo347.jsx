@@ -2,17 +2,37 @@ import { useState, useEffect } from "react";
 import api from "../api/axios";
 import { useLanguage } from "../context/LanguageContext";
 import { useNotification } from "../context/NotificationContext";
+import useAuth from "../hooks/useAuth";
 
 const Modelo347 = () => {
   const { t } = useLanguage();
   const { showNotification } = useNotification();
+  const { user } = useAuth();
   const [step, setStep] = useState(1);
   const [year, setYear] = useState(new Date().getFullYear());
   const [clients, setClients] = useState([]);
   const [selectedClients, setSelectedClients] = useState([]);
+  const [rentalClients, setRentalClients] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(null); // Client ID being edited
   const [editFormData, setEditFormData] = useState({});
+  const [declarerInfo, setDeclarerInfo] = useState({
+    nif: "",
+    name: "",
+    address: "",
+    city: "",
+    province: "",
+    postalCode: "",
+  });
+
+  useEffect(() => {
+    if (user) {
+      setDeclarerInfo((prev) => ({
+        ...prev,
+        name: `${user.name || ""} ${user.lastName || ""}`.trim(),
+      }));
+    }
+  }, [user]);
 
   useEffect(() => {
     fetchData();
@@ -40,6 +60,14 @@ const Modelo347 = () => {
       setSelectedClients(selectedClients.filter((c) => c !== id));
     } else {
       setSelectedClients([...selectedClients, id]);
+    }
+  };
+
+  const handleRentalToggle = (id) => {
+    if (rentalClients.includes(id)) {
+      setRentalClients(rentalClients.filter((c) => c !== id));
+    } else {
+      setRentalClients([...rentalClients, id]);
     }
   };
 
@@ -101,6 +129,7 @@ const Modelo347 = () => {
                 <th className="p-3">{t("client")}</th>
                 <th className="p-3">{t("clientNIF")}</th>
                 <th className="p-3 text-right">{t("totalAmount")}</th>
+                <th className="p-3 text-center">{t("isRental")}</th>
                 <th className="p-3">{t("status")}</th>
               </tr>
             </thead>
@@ -121,13 +150,20 @@ const Modelo347 = () => {
                     <td className="p-3 text-right">
                       {client.totalAmount.toFixed(2)}€
                     </td>
+                    <td className="p-3 text-center">
+                      <input
+                        type="checkbox"
+                        checked={rentalClients.includes(client._id)}
+                        onChange={() => handleRentalToggle(client._id)}
+                      />
+                    </td>
                     <td className="p-3">
                       {missing ? (
                         <span className="text-red-500 font-bold">
-                          {t("error")}
+                          {t("incompleteData")}
                         </span>
                       ) : (
-                        <span className="text-green-500">Ready</span>
+                        <span className="text-green-500">{t("ready")}</span>
                       )}
                     </td>
                   </tr>
@@ -314,9 +350,194 @@ const Modelo347 = () => {
   const renderStep3 = () => {
     const selectedData = clients.filter((c) => selectedClients.includes(c._id));
 
+    // Calculate Summary Boxes
+    const box01 = selectedData.length;
+    const box02 = selectedData.reduce((acc, c) => acc + c.totalAmount, 0);
+    const box03 = selectedData.filter((c) =>
+      rentalClients.includes(c._id)
+    ).length;
+    const box04 = selectedData
+      .filter((c) => rentalClients.includes(c._id))
+      .reduce((acc, c) => acc + c.totalAmount, 0);
+
+    const handleDeclarerChange = (e) => {
+      setDeclarerInfo({ ...declarerInfo, [e.target.name]: e.target.value });
+    };
+
+    const handleDownloadPDF = async () => {
+      try {
+        const response = await api.post(
+          "/invoices/modelo347/pdf",
+          {
+            year,
+            declarerInfo,
+            selectedClientIds: selectedClients,
+            summaryBoxes: {
+              box01,
+              box02,
+              box03,
+              box04,
+            },
+            rentalClientIds: rentalClients,
+          },
+          { responseType: "blob" }
+        );
+
+        const url = window.URL.createObjectURL(new Blob([response.data]));
+        const link = document.createElement("a");
+        link.href = url;
+        link.setAttribute("download", `Modelo347_${year}.pdf`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+      } catch (error) {
+        console.error("Error downloading PDF:", error);
+        showNotification(t("error"), "error");
+      }
+    };
+
     return (
-      <div>
-        <h3 className="text-xl font-bold mb-4">Step 3: Modelo 347 Report</h3>
+      <div className="print:w-full">
+        <h3 className="text-xl font-bold mb-4 print:hidden">
+          Step 3: Modelo 347 Report
+        </h3>
+
+        {/* Declarer Section */}
+        <div className="mb-6 p-4 border-2 border-gray-800 bg-white text-sm">
+          <h4 className="font-bold text-lg mb-2 border-b-2 border-gray-800 pb-1">
+            DECLARANTE (Sujeto Pasivo)
+          </h4>
+          <div className="grid grid-cols-12 gap-4">
+            <div className="col-span-3">
+              <label className="block text-xs font-bold">NIF / CIF</label>
+              <input
+                name="nif"
+                value={declarerInfo.nif}
+                onChange={handleDeclarerChange}
+                className="w-full border-b border-gray-400 focus:outline-none py-1"
+                placeholder="NIF"
+              />
+            </div>
+            <div className="col-span-9">
+              <label className="block text-xs font-bold">
+                Nombre / Razón Social
+              </label>
+              <input
+                name="name"
+                value={declarerInfo.name}
+                onChange={handleDeclarerChange}
+                className="w-full border-b border-gray-400 focus:outline-none py-1"
+                placeholder="Nombre"
+              />
+            </div>
+            <div className="col-span-12">
+              <label className="block text-xs font-bold">Domicilio</label>
+              <input
+                name="address"
+                value={declarerInfo.address}
+                onChange={handleDeclarerChange}
+                className="w-full border-b border-gray-400 focus:outline-none py-1"
+                placeholder="Calle, número, piso..."
+              />
+            </div>
+            <div className="col-span-4">
+              <label className="block text-xs font-bold">Municipio</label>
+              <input
+                name="city"
+                value={declarerInfo.city}
+                onChange={handleDeclarerChange}
+                className="w-full border-b border-gray-400 focus:outline-none py-1"
+                placeholder="Municipio"
+              />
+            </div>
+            <div className="col-span-4">
+              <label className="block text-xs font-bold">Código Postal</label>
+              <input
+                name="postalCode"
+                value={declarerInfo.postalCode}
+                onChange={handleDeclarerChange}
+                className="w-full border-b border-gray-400 focus:outline-none py-1"
+                placeholder="CP"
+              />
+            </div>
+            <div className="col-span-4">
+              <label className="block text-xs font-bold">Provincia</label>
+              <input
+                name="province"
+                value={declarerInfo.province}
+                onChange={handleDeclarerChange}
+                className="w-full border-b border-gray-400 focus:outline-none py-1"
+                placeholder="Provincia"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Summary Boxes Section */}
+        <div className="mb-6 p-4 border-2 border-orange-500 bg-orange-50 text-sm rounded-lg">
+          <h4 className="font-bold text-lg mb-4 text-orange-800 border-b border-orange-200 pb-2">
+            Resumen de los datos incluidos en la declaración
+          </h4>
+          <div className="grid gap-3">
+            <div className="flex justify-between items-center border-b border-orange-100 pb-2">
+              <span className="text-gray-700">
+                {t("box01")}{" "}
+                ..................................................................................
+              </span>
+              <div className="flex gap-2 items-center">
+                <span className="bg-white border-2 border-black px-2 py-0.5 font-bold">
+                  01
+                </span>
+                <span className="bg-white border-2 border-black px-4 py-0.5 w-32 text-right font-bold">
+                  {box01}
+                </span>
+              </div>
+            </div>
+            <div className="flex justify-between items-center border-b border-orange-100 pb-2">
+              <span className="text-gray-700">
+                {t("box02")}{" "}
+                ..................................................................................
+              </span>
+              <div className="flex gap-2 items-center">
+                <span className="bg-white border-2 border-black px-2 py-0.5 font-bold">
+                  02
+                </span>
+                <span className="bg-white border-2 border-black px-4 py-0.5 w-32 text-right font-bold">
+                  {box02.toFixed(2)}
+                </span>
+              </div>
+            </div>
+            <div className="flex justify-between items-center border-b border-orange-100 pb-2">
+              <span className="text-gray-700">
+                {t("box03")}{" "}
+                ..................................................................................
+              </span>
+              <div className="flex gap-2 items-center">
+                <span className="bg-white border-2 border-black px-2 py-0.5 font-bold">
+                  03
+                </span>
+                <span className="bg-white border-2 border-black px-4 py-0.5 w-32 text-right font-bold">
+                  {box03}
+                </span>
+              </div>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-700">
+                {t("box04")}{" "}
+                ..................................................................................
+              </span>
+              <div className="flex gap-2 items-center">
+                <span className="bg-white border-2 border-black px-2 py-0.5 font-bold">
+                  04
+                </span>
+                <span className="bg-white border-2 border-black px-4 py-0.5 w-32 text-right font-bold">
+                  {box04.toFixed(2)}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div className="overflow-x-auto bg-white rounded shadow">
           <table className="w-full text-sm text-left">
             <thead className="bg-gray-100 uppercase text-xs">
@@ -361,7 +582,7 @@ const Modelo347 = () => {
             </tbody>
           </table>
         </div>
-        <div className="flex justify-between mt-6">
+        <div className="flex justify-between mt-6 print:hidden">
           <button
             className="px-4 py-2 border rounded"
             onClick={() => setStep(2)}
@@ -370,7 +591,7 @@ const Modelo347 = () => {
           </button>
           <button
             className="bg-green-600 text-white px-4 py-2 rounded"
-            onClick={() => window.print()}
+            onClick={handleDownloadPDF}
           >
             {t("downloadPDF")}
           </button>

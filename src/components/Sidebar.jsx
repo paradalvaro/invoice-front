@@ -18,7 +18,7 @@ const Sidebar = () => {
       path: "/configuration",
       icon: "⚙️",
     },*/
-    //{ label: "Modelo 347", path: "/modelo347", icon: "📊" },
+    { label: "Modelo 347", path: "/modelo347", icon: "📊" },
     // Add other items as visual placeholders if needed
   ];
 

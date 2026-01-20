@@ -22,6 +22,7 @@ const ClientForm = () => {
     paymentMethod: "Transferencia",
     paymentTerms: "1 day",
     paymentTermsManual: "",
+    contactPerson: [],
   });
   const [isLoading, setIsLoading] = useState(isEditMode);
   const [error, setError] = useState(null);
@@ -58,6 +59,28 @@ const ClientForm = () => {
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleAddContactPerson = () => {
+    setFormData({
+      ...formData,
+      contactPerson: [
+        ...formData.contactPerson,
+        { name: "", lastName: "", phoneNumber: "" },
+      ],
+    });
+  };
+
+  const handleRemoveContactPerson = (index) => {
+    const updated = formData.contactPerson.filter((_, i) => i !== index);
+    setFormData({ ...formData, contactPerson: updated });
+  };
+
+  const handleContactPersonChange = (index, field, value) => {
+    const updated = formData.contactPerson.map((person, i) =>
+      i === index ? { ...person, [field]: value } : person
+    );
+    setFormData({ ...formData, contactPerson: updated });
   };
 
   const handleSubmit = async (e) => {
@@ -475,6 +498,191 @@ const ClientForm = () => {
                   }}
                 />
               </div>
+            </div>
+
+            {/* Contact Persons Section */}
+            <div style={{ marginTop: "1.5rem" }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: "1rem",
+                }}
+              >
+                <label
+                  style={{
+                    fontWeight: "500",
+                    color: "var(--color-text-secondary)",
+                  }}
+                >
+                  {t("contactPersons")}
+                </label>
+                <button
+                  type="button"
+                  onClick={handleAddContactPerson}
+                  style={{
+                    backgroundColor: "var(--color-primary)",
+                    color: "white",
+                    padding: "0.375rem 0.75rem",
+                    borderRadius: "0.375rem",
+                    border: "none",
+                    cursor: "pointer",
+                    fontSize: "0.875rem",
+                    fontWeight: "500",
+                  }}
+                >
+                  + {t("addContactPerson")}
+                </button>
+              </div>
+
+              {formData.contactPerson.map((person, index) => (
+                <div
+                  key={index}
+                  style={{
+                    border: "1px solid #e2e8f0",
+                    borderRadius: "0.375rem",
+                    padding: "1rem",
+                    marginBottom: "1rem",
+                    backgroundColor: "#f8fafc",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginBottom: "0.75rem",
+                    }}
+                  >
+                    <h4
+                      style={{
+                        fontSize: "0.875rem",
+                        fontWeight: "600",
+                        color: "var(--color-text-secondary)",
+                      }}
+                    >
+                      {t("contactPerson")} {index + 1}
+                    </h4>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveContactPerson(index)}
+                      style={{
+                        backgroundColor: "#ef4444",
+                        color: "white",
+                        padding: "0.25rem 0.5rem",
+                        borderRadius: "0.25rem",
+                        border: "none",
+                        cursor: "pointer",
+                        fontSize: "0.75rem",
+                      }}
+                    >
+                      {t("remove")}
+                    </button>
+                  </div>
+
+                  <div style={{ display: "grid", gap: "0.75rem" }}>
+                    <div>
+                      <label
+                        style={{
+                          display: "block",
+                          marginBottom: "0.25rem",
+                          fontSize: "0.875rem",
+                          fontWeight: "500",
+                          color: "var(--color-text-secondary)",
+                        }}
+                      >
+                        {t("contactName")}
+                      </label>
+                      <input
+                        type="text"
+                        value={person.name}
+                        onChange={(e) =>
+                          handleContactPersonChange(
+                            index,
+                            "name",
+                            e.target.value
+                          )
+                        }
+                        required
+                        style={{
+                          width: "100%",
+                          padding: "0.5rem",
+                          borderRadius: "0.375rem",
+                          border: "1px solid #cbd5e1",
+                          backgroundColor: "white",
+                        }}
+                      />
+                    </div>
+
+                    <div>
+                      <label
+                        style={{
+                          display: "block",
+                          marginBottom: "0.25rem",
+                          fontSize: "0.875rem",
+                          fontWeight: "500",
+                          color: "var(--color-text-secondary)",
+                        }}
+                      >
+                        {t("contactLastName")}
+                      </label>
+                      <input
+                        type="text"
+                        value={person.lastName}
+                        onChange={(e) =>
+                          handleContactPersonChange(
+                            index,
+                            "lastName",
+                            e.target.value
+                          )
+                        }
+                        required
+                        style={{
+                          width: "100%",
+                          padding: "0.5rem",
+                          borderRadius: "0.375rem",
+                          border: "1px solid #cbd5e1",
+                          backgroundColor: "white",
+                        }}
+                      />
+                    </div>
+
+                    <div>
+                      <label
+                        style={{
+                          display: "block",
+                          marginBottom: "0.25rem",
+                          fontSize: "0.875rem",
+                          fontWeight: "500",
+                          color: "var(--color-text-secondary)",
+                        }}
+                      >
+                        {t("contactPhone")}
+                      </label>
+                      <input
+                        type="text"
+                        value={person.phoneNumber}
+                        onChange={(e) =>
+                          handleContactPersonChange(
+                            index,
+                            "phoneNumber",
+                            e.target.value
+                          )
+                        }
+                        required
+                        style={{
+                          width: "100%",
+                          padding: "0.5rem",
+                          borderRadius: "0.375rem",
+                          border: "1px solid #cbd5e1",
+                          backgroundColor: "white",
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
 
             <div

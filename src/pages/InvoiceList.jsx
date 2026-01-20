@@ -9,7 +9,7 @@ import { useNotification } from "../context/NotificationContext";
 const baseURL = import.meta.env.VITE_SERVER_URL;
 
 const InvoiceList = () => {
-  const { t, language } = useLanguage();
+  const { t } = useLanguage();
   const { config } = useConfig();
   const [invoices, setInvoices] = useState([]);
   const [pagination, setPagination] = useState({
@@ -29,6 +29,13 @@ const InvoiceList = () => {
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   const [selectedInvoiceId, setSelectedInvoiceId] = useState(null);
   const [recipientEmails, setRecipientEmails] = useState("");
+  const [isRelatedAlbaranesModalOpen, setIsRelatedAlbaranesModalOpen] =
+    useState(false);
+  const [relatedAlbaranes, setRelatedAlbaranes] = useState([]);
+  const [isAlbaranesLoading, setIsAlbaranesLoading] = useState(false);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [invoiceHistory, setInvoiceHistory] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   const { showNotification } = useNotification();
 
@@ -37,7 +44,7 @@ const InvoiceList = () => {
     setError(null);
     try {
       const response = await api.get(
-        `/invoices?page=${pagination.currentPage}&limit=10&sortBy=${sortBy}&order=${sortOrder}&search=${search}&searchField=${searchField}&status=${statusFilter}&dueDateRange=${dueDateRangeFilter}`
+        `/invoices?page=${pagination.currentPage}&limit=10&sortBy=${sortBy}&order=${sortOrder}&search=${search}&searchField=${searchField}&status=${statusFilter}&dueDateRange=${dueDateRangeFilter}`,
       );
       if (response.data.data) {
         setInvoices(response.data.data);
@@ -128,7 +135,7 @@ const InvoiceList = () => {
       });
       showNotification(
         t("emailSentSuccess") || "Invoice sent by email",
-        "success"
+        "success",
       );
       setIsEmailModalOpen(false);
     } catch (err) {
@@ -158,6 +165,79 @@ const InvoiceList = () => {
         console.error("Error marking invoice as paid:", err);
         showNotification(t("error"), "error");
       }
+    }
+  };
+
+  const handleViewAlbaranes = async (id) => {
+    setSelectedInvoiceId(id);
+    setIsRelatedAlbaranesModalOpen(true);
+    setIsAlbaranesLoading(true);
+    try {
+      const response = await api.get(`/albaranes?invoiceId=${id}&limit=100`);
+      setRelatedAlbaranes(response.data.data || []);
+    } catch (err) {
+      console.error("Error fetching related albaranes:", err);
+      showNotification(t("error"), "error");
+    } finally {
+      setIsAlbaranesLoading(false);
+    }
+  };
+
+  const setIsAlbaranesModalOpen = (isOpen) => {
+    setIsRelatedAlbaranesModalOpen(isOpen);
+    if (!isOpen) {
+      setRelatedAlbaranes([]);
+    }
+  };
+
+  const handleViewHistory = async (invoice) => {
+    setSelectedInvoiceId(invoice._id);
+    setIsHistoryModalOpen(true);
+    setHistoryLoading(true);
+    try {
+      // 1. Fetch related albaranes to get their creation info
+      const albResponse = await api.get(
+        `/albaranes?invoiceId=${invoice._id}&limit=100`,
+      );
+      const albs = albResponse.data.data || [];
+
+      // 2. Build the combined list of events
+      let events = [];
+
+      // Add base history from invoice
+      if (invoice.history) {
+        events = [...invoice.history];
+      }
+
+      // Add albaran creation events (if not already logged as LINKED)
+      // Actually, user wants "when the albaranes associates to it where created"
+      albs.forEach((alb) => {
+        events.push({
+          type: "ALBARAN_CREATED",
+          date: alb.date,
+          description: `Albarán ${alb.serie} ${alb.AlbaranNumber} creado`,
+          details: { serie: alb.serie, number: alb.AlbaranNumber },
+        });
+      });
+
+      // Add expiration event if applicable
+      const now = new Date();
+      if (new Date(invoice.dueDate) < now && invoice.status !== "Paid") {
+        events.push({
+          type: "EXPIRED",
+          date: invoice.dueDate,
+          description: t("eventExpired"),
+        });
+      }
+
+      // Sort events by date descending
+      events.sort((a, b) => new Date(b.date) - new Date(a.date));
+      setInvoiceHistory(events);
+    } catch (err) {
+      console.error("Error fetching history:", err);
+      showNotification(t("error"), "error");
+    } finally {
+      setHistoryLoading(false);
     }
   };
 
@@ -690,7 +770,11 @@ const InvoiceList = () => {
                     data-label={t("invoiceNumber")}
                   >
                     <Link
-                      to={`/invoices/${invoice._id}/edit`}
+                      to={
+                        invoice.status === "Draft"
+                          ? `/invoices/${invoice._id}/edit`
+                          : `/invoices/${invoice._id}/view`
+                      }
                       style={{
                         color: "var(--color-primary)",
                         fontWeight: "500",
@@ -748,18 +832,18 @@ const InvoiceList = () => {
                           invoice.status === "Paid"
                             ? "#dcfce7"
                             : invoice.status === "Draft"
-                            ? "#f3f4f6"
-                            : new Date(invoice.dueDate) < new Date()
-                            ? "#fee2e2"
-                            : "#fef9c3",
+                              ? "#f3f4f6"
+                              : new Date(invoice.dueDate) < new Date()
+                                ? "#fee2e2"
+                                : "#fef9c3",
                         color:
                           invoice.status === "Paid"
                             ? "#166534"
                             : invoice.status === "Draft"
-                            ? "#64748b"
-                            : new Date(invoice.dueDate) < new Date()
-                            ? "#991b1b"
-                            : "#854d0e",
+                              ? "#64748b"
+                              : new Date(invoice.dueDate) < new Date()
+                                ? "#991b1b"
+                                : "#854d0e",
                         fontWeight: "600",
                         textTransform: "uppercase",
                       }}
@@ -767,10 +851,10 @@ const InvoiceList = () => {
                       {invoice.status === "Paid"
                         ? t("statusPaid")
                         : invoice.status === "Draft"
-                        ? t("statusDraft")
-                        : new Date(invoice.dueDate) < new Date()
-                        ? t("statusExpired")
-                        : t("statusPending")}
+                          ? t("statusDraft")
+                          : new Date(invoice.dueDate) < new Date()
+                            ? t("statusExpired")
+                            : t("statusPending")}
                     </span>
                   </td>
                   <td
@@ -798,8 +882,8 @@ const InvoiceList = () => {
                     invoice.balanceDue !== null
                       ? invoice.balanceDue.toFixed(2)
                       : invoice.status === "Paid"
-                      ? "0.00"
-                      : invoice.totalAmount.toFixed(2)}
+                        ? "0.00"
+                        : invoice.totalAmount.toFixed(2)}
                   </td>
                   <td
                     style={{ padding: "1rem", fontSize: "0.9rem" }}
@@ -832,7 +916,7 @@ const InvoiceList = () => {
                             "es-ES",
                             {
                               timeZone: config.timezone || "Europe/Madrid",
-                            }
+                            },
                           )
                         : "-"
                     }
@@ -847,7 +931,7 @@ const InvoiceList = () => {
                           const token = localStorage.getItem("token");
                           window.open(
                             `${baseURL}/invoices/${invoice._id}/pdf?token=${token}`,
-                            "_blank"
+                            "_blank",
                           );
                         }}
                         style={{
@@ -879,7 +963,7 @@ const InvoiceList = () => {
                         onClick={() =>
                           handleSendEmail(
                             invoice._id,
-                            invoice.client?.email || ""
+                            invoice.client?.email || "",
                           )
                         }
                         style={{
@@ -936,6 +1020,60 @@ const InvoiceList = () => {
                           </svg>
                         </button>
                       )}
+                      <button
+                        onClick={() => handleViewAlbaranes(invoice._id)}
+                        style={{
+                          padding: "0.5rem",
+                          fontSize: "0.8rem",
+                          backgroundColor: "var(--color-sidebar-bg)",
+                          border: "1px solid var(--color-border)",
+                          color: "var(--color-primary)",
+                          borderRadius: "4px",
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                        title={t("listAlbaranes")}
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="16"
+                          height="16"
+                          fill="currentColor"
+                          viewBox="0 0 16 16"
+                        >
+                          <path d="M5 8a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7A.5.5 0 0 1 5 8zm0-2.5a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm0 5a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm-1-5a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0zM4 8a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0zm0 2.5a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0z" />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={() => handleViewHistory(invoice)}
+                        style={{
+                          padding: "0.5rem",
+                          fontSize: "0.8rem",
+                          backgroundColor: "var(--color-sidebar-bg)",
+                          border: "1px solid var(--color-border)",
+                          color: "#6366f1", // Indigo
+                          borderRadius: "4px",
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                        title={t("historical")}
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="16"
+                          height="16"
+                          fill="currentColor"
+                          viewBox="0 0 16 16"
+                        >
+                          <path d="M8.515 1.019A7 7 0 0 0 8 1V0a8 8 0 0 1 .589.022l-.074.997zm2.004.45a7.003 7.003 0 0 0-.985-.299l.219-.976c.383.086.76.2 1.126.342l-.36.933zm1.37.71a7.01 7.01 0 0 0-.439-.453l.637-.77a8.106 8.106 0 0 1 .475.489l-.673.734zM9 3a.5.5 0 0 1 .5.5v2.793l1.354 1.353a.5.5 0 0 1-.708.707l-1.5-1.5A.5.5 0 0 1 8.5 6.5V3.5A.5.5 0 0 1 9 3z" />
+                          <path d="M10.854 7.854a.5.5 0 0 0-.708-.707l-1.5 1.5a.5.5 0 0 0 0 .708l1.5 1.5a.5.5 0 0 0 .708-.708L9.707 9l1.147-1.146z" />
+                          <path d="M1 8a7 7 0 1 0 14 0A7 7 0 0 0 1 8zm15 0A8 8 0 1 1 0 8a8 8 0 0 1 16 0z" />
+                        </svg>
+                      </button>
                       {invoice.status !== "Draft" && (
                         <>
                           <Link
@@ -1167,6 +1305,285 @@ const InvoiceList = () => {
               </button>
               <button className="btn btn-primary" onClick={confirmSendEmail}>
                 {t("sendToEmails")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Related Albaranes Modal */}
+      {isRelatedAlbaranesModalOpen && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "white",
+              padding: "2rem",
+              borderRadius: "8px",
+              width: "600px",
+              maxHeight: "80vh",
+              overflowY: "auto",
+              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+            }}
+          >
+            <div
+              className="flex justify-between items-center"
+              style={{ marginBottom: "1.5rem" }}
+            >
+              <h3 style={{ fontSize: "1.25rem", fontWeight: "600", margin: 0 }}>
+                {t("relatedAlbaranes")}
+              </h3>
+              <button
+                onClick={() => setIsAlbaranesModalOpen(false)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  fontSize: "1.5rem",
+                  cursor: "pointer",
+                  color: "#64748b",
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            {isAlbaranesLoading ? (
+              <div style={{ textAlign: "center", padding: "2rem" }}>
+                {t("loading")}
+              </div>
+            ) : relatedAlbaranes.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "2rem" }}>
+                {t("noAlbaranes")}
+              </div>
+            ) : (
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "1rem",
+                }}
+              >
+                {relatedAlbaranes.map((albaran) => (
+                  <div
+                    key={albaran._id}
+                    style={{
+                      padding: "1rem",
+                      border: "1px solid #e2e8f0",
+                      borderRadius: "6px",
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontWeight: "700",
+                        marginBottom: "0.5rem",
+                        display: "flex",
+                        justifyContent: "space-between",
+                      }}
+                    >
+                      <span>
+                        {albaran.serie} {albaran.AlbaranNumber}
+                      </span>
+                      <span style={{ fontWeight: "400", fontSize: "0.85rem" }}>
+                        {new Date(albaran.date).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <div>
+                      <h4
+                        style={{
+                          fontSize: "0.9rem",
+                          fontWeight: "600",
+                          color: "#64748b",
+                          marginBottom: "0.25rem",
+                        }}
+                      >
+                        {t("services")}
+                      </h4>
+                      <ul style={{ margin: 0, paddingLeft: "1.2rem" }}>
+                        {albaran.services.map((service, idx) => (
+                          <li
+                            key={idx}
+                            style={{ fontSize: "0.9rem", marginBottom: "2px" }}
+                          >
+                            <span style={{ fontWeight: "600" }}>
+                              {service.quantity}x
+                            </span>{" "}
+                            {service.concept}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div
+              style={{
+                marginTop: "2rem",
+                display: "flex",
+                justifyContent: "flex-end",
+              }}
+            >
+              <button
+                className="btn btn-secondary"
+                onClick={() => setIsAlbaranesModalOpen(false)}
+              >
+                {t("close")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Historical Modal */}
+      {isHistoryModalOpen && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "white",
+              padding: "2rem",
+              borderRadius: "8px",
+              width: "550px",
+              maxHeight: "85vh",
+              overflowY: "auto",
+              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+            }}
+          >
+            <div
+              className="flex justify-between items-center"
+              style={{ marginBottom: "1.5rem" }}
+            >
+              <h3 style={{ fontSize: "1.25rem", fontWeight: "600", margin: 0 }}>
+                {t("historyTitle")}
+              </h3>
+              <button
+                onClick={() => setIsHistoryModalOpen(false)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  fontSize: "1.5rem",
+                  cursor: "pointer",
+                  color: "#64748b",
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            {historyLoading ? (
+              <div style={{ textAlign: "center", padding: "2rem" }}>
+                {t("loading")}
+              </div>
+            ) : invoiceHistory.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "2rem" }}>
+                {t("noResults")}
+              </div>
+            ) : (
+              <div
+                style={{
+                  position: "relative",
+                  paddingLeft: "1.5rem",
+                  borderLeft: "2px solid #e2e8f0",
+                  marginLeft: "0.5rem",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "1.5rem",
+                }}
+              >
+                {invoiceHistory.map((event, idx) => (
+                  <div key={idx} style={{ position: "relative" }}>
+                    {/* Timeline Dot */}
+                    <div
+                      style={{
+                        position: "absolute",
+                        left: "-1.85rem",
+                        top: "0.25rem",
+                        width: "12px",
+                        height: "12px",
+                        borderRadius: "50%",
+                        backgroundColor:
+                          event.type === "CREATED"
+                            ? "#10b981"
+                            : event.type === "EXPIRED"
+                              ? "#ef4444"
+                              : event.type === "STATUS_CHANGE"
+                                ? "#f59e0b"
+                                : "#6366f1",
+                        border: "2px solid white",
+                        boxShadow: "0 0 0 2px #e2e8f0",
+                      }}
+                    />
+                    <div
+                      style={{
+                        fontSize: "0.75rem",
+                        color: "#64748b",
+                        marginBottom: "0.25rem",
+                        fontWeight: "600",
+                      }}
+                    >
+                      {new Date(event.date).toLocaleString("es-ES", {
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                        timeZone: config.timezone || "Europe/Madrid",
+                      })}
+                    </div>
+                    <div style={{ fontWeight: "500", fontSize: "0.95rem" }}>
+                      {event.description}
+                    </div>
+                    {event.details && event.type === "EMAIL_SENT" && (
+                      <div
+                        style={{
+                          fontSize: "0.85rem",
+                          color: "#64748b",
+                          marginTop: "0.25rem",
+                          wordBreak: "break-word",
+                        }}
+                      >
+                        {event.details.recipients}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div
+              style={{
+                marginTop: "2.5rem",
+                display: "flex",
+                justifyContent: "flex-end",
+              }}
+            >
+              <button
+                className="btn btn-secondary"
+                onClick={() => setIsHistoryModalOpen(false)}
+              >
+                {t("close")}
               </button>
             </div>
           </div>

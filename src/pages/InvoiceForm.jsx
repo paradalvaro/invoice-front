@@ -3,6 +3,7 @@ import { useNavigate, useParams, useLocation } from "react-router-dom";
 import api from "../api/axios";
 import { useLanguage } from "../context/LanguageContext";
 import { useConfig } from "../context/ConfigContext";
+import { useNotification } from "../context/NotificationContext";
 
 const InvoiceForm = () => {
   const { t } = useLanguage();
@@ -10,8 +11,10 @@ const InvoiceForm = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { id } = useParams();
+  const { showNotification } = useNotification();
   const isRectifyMode = location.pathname.endsWith("/rectify");
-  const isEditMode = !!id && !isRectifyMode;
+  const isViewMode = location.pathname.includes("/view");
+  const isEditMode = !!id && !isRectifyMode && !isViewMode;
 
   // Helper to combine a YYYY-MM-DD string with the current time in the target timezone
   const combineDateWithCurrentTime = useCallback(
@@ -47,20 +50,20 @@ const InvoiceForm = () => {
 
       const p = parts.reduce(
         (acc, part) => ({ ...acc, [part.type]: part.value }),
-        {}
+        {},
       );
       const dateFormatted = `${p.year}-${p.month.padStart(
         2,
-        "0"
+        "0",
       )}-${p.day.padStart(2, "0")}T${p.hour.padStart(
         2,
-        "0"
+        "0",
       )}:${p.minute.padStart(2, "0")}:${p.second.padStart(2, "0")}`;
 
       const diff = temp.getTime() - new Date(dateFormatted).getTime();
       return new Date(temp.getTime() + diff).toISOString();
     },
-    [config.timezone]
+    [config.timezone],
   );
 
   const getTodayStr = useCallback(() => {
@@ -137,6 +140,13 @@ const InvoiceForm = () => {
     paymentTermsManual: "",
   });
 
+  // Flow from Albaran
+  const [availableAlbaranes, setAvailableAlbaranes] = useState([]);
+  const [selectedAlbaranes, setSelectedAlbaranes] = useState([]); // Array of IDs
+  const [isAlbaranesCollapsed, setIsAlbaranesCollapsed] = useState(false);
+  const searchParams = new URLSearchParams(location.search);
+  const fromAlbaranId = searchParams.get("fromAlbaran");
+
   const fetchInvoice = async () => {
     setIsLoading(true);
     setError(null);
@@ -193,6 +203,13 @@ const InvoiceForm = () => {
           setPaymentTerm("custom");
         }
       }
+
+      // Redirect to view mode if trying to edit a non-draft invoice
+      if (location.pathname.includes("/edit") && invoice.status !== "Draft") {
+        navigate(`/invoices/${id}/view`, { replace: true });
+        return;
+      }
+
       setIsLoading(false);
     } catch (err) {
       console.error("Error fetching invoice:", err);
@@ -222,6 +239,118 @@ const InvoiceForm = () => {
     fetchClients();
   }, []);
 
+  // Handle "fromAlbaran" logic
+  useEffect(() => {
+    if (fromAlbaranId && !isEditMode) {
+      const initFromAlbaran = async () => {
+        try {
+          const res = await api.get(`/albaranes/${fromAlbaranId}`);
+          const albaran = res.data;
+
+          // Pre-fill client data
+          if (albaran.client) {
+            setFormData((prev) => ({
+              ...prev,
+              client: albaran.client._id,
+              clientName: albaran.client.name,
+              clientNIF: albaran.client.nif,
+              // Keep other defaults or copy?
+            }));
+            setClientMode("existing");
+          }
+
+          // We will fetch available albaranes in the next effect when `formData.client` is set
+          // But we need to ensure this albaran is selected initially
+          setSelectedAlbaranes([fromAlbaranId]);
+
+          // Build services to add from this albaran
+          const albaranServices = albaran.services.map((s) => ({
+            ...s,
+            albaranId: albaran._id,
+            taxBase: s.taxBase || 0,
+            discount: s.discount || 0,
+            iva: s.iva || 21,
+          }));
+
+          setFormData((prev) => {
+            // Check if any service from this albaran is already present to avoid duplicates (e.g. from StrictMode)
+            const exists = prev.services.some(
+              (s) => s.albaranId === albaran._id,
+            );
+            if (exists) return prev;
+
+            return {
+              ...prev,
+              services: [...prev.services, ...albaranServices],
+            };
+          });
+        } catch (err) {
+          console.error("Error fetching source albaran", err);
+          showNotification &&
+            showNotification("Error loading albaran data", "error");
+        }
+      };
+      initFromAlbaran();
+    }
+  }, [fromAlbaranId, isEditMode, showNotification]); // Run once on mount if param exists
+
+  // Fetch available albaranes when client changes
+  useEffect(() => {
+    if (formData.client && !isViewMode) {
+      const fetchAvailableAlbaranes = async () => {
+        try {
+          // fetch albaranes for this client that are Done and pending invoice
+          // We must include the "fromAlbaranId" in the result if it exists, even if logic differs?
+          // The backend filter `pendingInvoice=true` handles `invoiceId` missing.
+          // `status=Done`.
+          const res = await api.get(
+            `/albaranes?client=${formData.client}&status=Done&pendingInvoice=true&limit=100`,
+          );
+          let albaranes = res.data.data || [];
+
+          // Only show those matching the checks
+          setAvailableAlbaranes(albaranes);
+          if (albaranes.length > 0) {
+            // If we came from albaran, expand. Else maybe collapse?
+            setIsAlbaranesCollapsed(false);
+          }
+        } catch (err) {
+          console.error("Error fetching available albaranes", err);
+        }
+      };
+      fetchAvailableAlbaranes();
+    } else {
+      setAvailableAlbaranes([]);
+    }
+  }, [formData.client, isViewMode]);
+
+  const toggleAlbaranSelection = (albaran) => {
+    const isSelected = selectedAlbaranes.includes(albaran._id);
+    let newSelected;
+    let newServices = [...formData.services];
+
+    if (isSelected) {
+      // Uncheck: Remove ID and remove services
+      newSelected = selectedAlbaranes.filter((id) => id !== albaran._id);
+      newServices = newServices.filter((s) => s.albaranId !== albaran._id);
+    } else {
+      // Check: Add ID and append services
+      newSelected = [...selectedAlbaranes, albaran._id];
+      const servicesToAdd = albaran.services.map((s) => ({
+        ...s,
+        albaranId: albaran._id,
+        // Ensure numbers are numbers and set defaults
+        taxBase: parseFloat(s.taxBase || 0),
+        discount: parseFloat(s.discount || 0),
+        iva: parseFloat(s.iva || 21),
+      }));
+      newServices = [...newServices, ...servicesToAdd];
+    }
+
+    setSelectedAlbaranes(newSelected);
+    setFormData({ ...formData, services: newServices });
+  };
+
   // Auto-fetch next number when series changes
   useEffect(() => {
     const fetchNextNumber = async () => {
@@ -240,7 +369,7 @@ const InvoiceForm = () => {
 
       try {
         const response = await api.get(
-          `/invoices/next-number?serie=${formData.serie}`
+          `/invoices/next-number?serie=${formData.serie}`,
         );
         setFormData((prev) => ({
           ...prev,
@@ -288,7 +417,7 @@ const InvoiceForm = () => {
     setIsClientDropdownOpen(true);
     if (value) {
       const filtered = clients.filter((client) =>
-        client.name.toLowerCase().includes(value.toLowerCase())
+        client.name.toLowerCase().includes(value.toLowerCase()),
       );
       setFilteredClients(filtered);
     } else {
@@ -418,7 +547,7 @@ const InvoiceForm = () => {
       }
       if (!formData.invoiceNumber) {
         setFormError(
-          t("invoiceNumber") + " is required for non-draft invoices."
+          t("invoiceNumber") + " is required for non-draft invoices.",
         );
         return;
       }
@@ -462,7 +591,7 @@ const InvoiceForm = () => {
         console.error("Error creating new client:", err);
         setFormError(
           "Error creating new client: " +
-            (err.response?.data?.message || err.message)
+            (err.response?.data?.message || err.message),
         );
         return;
       }
@@ -496,6 +625,7 @@ const InvoiceForm = () => {
       const payload = {
         ...dataToUse,
         //date: combineDateWithCurrentTime(formData.date || getTodayStr()),
+        albaranIds: selectedAlbaranes,
       };
 
       if (isEditMode) {
@@ -549,17 +679,19 @@ const InvoiceForm = () => {
         style={{ marginBottom: "1.5rem" }}
       >
         <h2 style={{ fontSize: "1.5rem", fontWeight: "600" }}>
-          {isRectifyMode
-            ? t("rectify")
-            : isEditMode
-            ? t("editInvoice")
-            : t("newInvoice")}
+          {isViewMode
+            ? t("viewInvoice")
+            : isRectifyMode
+              ? t("rectify")
+              : isEditMode
+                ? t("editInvoice")
+                : t("newInvoice")}
         </h2>
         <button
           onClick={() => navigate("/invoices")}
           className="btn btn-secondary"
         >
-          {t("cancel")}
+          {isViewMode ? t("close") : t("cancel")}
         </button>
       </div>
 
@@ -572,553 +704,139 @@ const InvoiceForm = () => {
         }}
       >
         <form onSubmit={handleSubmit}>
-          {formError && (
+          <fieldset
+            disabled={isViewMode}
+            style={{ border: "none", padding: 0, margin: 0 }}
+          >
+            {formError && (
+              <div
+                style={{
+                  backgroundColor: "#fee2e2",
+                  color: "#ef4444",
+                  padding: "1rem",
+                  borderRadius: "0.375rem",
+                  marginBottom: "1.5rem",
+                  border: "1px solid #fecaca",
+                  fontSize: "0.9rem",
+                }}
+              >
+                <strong>{t("error") || "Error"}:</strong> {formError}
+              </div>
+            )}
             <div
               style={{
-                backgroundColor: "#fee2e2",
-                color: "#ef4444",
-                padding: "1rem",
-                borderRadius: "0.375rem",
-                marginBottom: "1.5rem",
-                border: "1px solid #fecaca",
-                fontSize: "0.9rem",
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "1.5rem",
               }}
             >
-              <strong>{t("error") || "Error"}:</strong> {formError}
-            </div>
-          )}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: "1.5rem",
-            }}
-          >
-            {isRectifyMode && (
-              <>
-                <div>
-                  <label
-                    style={{
-                      display: "block",
-                      marginBottom: "0.5rem",
-                      fontWeight: "500",
-                      color: "var(--color-text-secondary)",
-                    }}
-                  >
-                    {t("rectifyInvoice")}
-                  </label>
-                  <input
-                    type="text"
-                    name="rectifyInvoice"
-                    value={formData.rectifyInvoice}
-                    required
-                    readOnly
-                    style={{
-                      backgroundColor: "#f3f4f6",
-                      cursor: "not-allowed",
-                    }}
-                  />
-                </div>
-                <div>
-                  <label
-                    style={{
-                      display: "block",
-                      marginBottom: "0.5rem",
-                      fontWeight: "500",
-                      color: "var(--color-text-secondary)",
-                    }}
-                  >
-                    {t("rectifyReason")}
-                  </label>
-                  <input
-                    type="text"
-                    name="rectifyReason"
-                    value={formData.rectifyReason || ""}
-                    onChange={handleChange}
-                    required
-                    placeholder={
-                      t("rectifyReason") || "Reason for rectification"
-                    }
-                    style={{
-                      padding: "0.5rem",
-                      borderRadius: "0.375rem",
-                      border: "1px solid #cbd5e1",
-                    }}
-                  />
-                </div>
-              </>
-            )}
-            {formData.type !== "F2" && (
-              <>
-                <div style={{ gridColumn: "span 2" }}>
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: "1.5rem",
-                      marginBottom: "1rem",
-                      borderBottom: "1px solid #e2e8f0",
-                      paddingBottom: "0.5rem",
-                    }}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => setClientMode("existing")}
+              {isRectifyMode && (
+                <>
+                  <div>
+                    <label
                       style={{
-                        background: "none",
-                        border: "none",
-                        borderBottom:
-                          clientMode === "existing"
-                            ? "2px solid #6366f1"
-                            : "2px solid transparent",
-                        color:
-                          clientMode === "existing" ? "#6366f1" : "#64748b",
-                        fontWeight: "600",
-                        padding: "0.5rem 0",
-                        cursor: "pointer",
+                        display: "block",
+                        marginBottom: "0.5rem",
+                        fontWeight: "500",
+                        color: "var(--color-text-secondary)",
                       }}
                     >
-                      {t("chooseExistingClient")}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setClientMode("new")}
+                      {t("rectifyInvoice")}
+                    </label>
+                    <input
+                      type="text"
+                      name="rectifyInvoice"
+                      value={formData.rectifyInvoice}
+                      required
+                      readOnly
                       style={{
-                        background: "none",
-                        border: "none",
-                        borderBottom:
-                          clientMode === "new"
-                            ? "2px solid #6366f1"
-                            : "2px solid transparent",
-                        color: clientMode === "new" ? "#6366f1" : "#64748b",
-                        fontWeight: "600",
-                        padding: "0.5rem 0",
-                        cursor: "pointer",
+                        backgroundColor: "#f3f4f6",
+                        cursor: "not-allowed",
                       }}
-                    >
-                      + {t("createNewClient")}
-                    </button>
+                    />
                   </div>
-
-                  {clientMode === "existing" ? (
-                    <>
-                      <label
-                        style={{
-                          display: "block",
-                          marginBottom: "0.5rem",
-                          fontWeight: "500",
-                          color: "var(--color-text-secondary)",
-                        }}
-                      >
-                        {t("clientName")}
-                      </label>
-                      <div
-                        style={{ position: "relative", marginBottom: "1rem" }}
-                      >
-                        <input
-                          type="text"
-                          name="clientName"
-                          value={formData.clientName}
-                          onChange={handleClientNameChange}
-                          onFocus={() => {
-                            if (clients.length > 0) {
-                              setFilteredClients(clients);
-                              setIsClientDropdownOpen(true);
-                            }
-                          }}
-                          onBlur={() =>
-                            setTimeout(
-                              () => setIsClientDropdownOpen(false),
-                              200
-                            )
-                          }
-                          required={
-                            formData.type !== "F2" &&
-                            formData.status !== "Draft" &&
-                            clientMode === "existing"
-                          }
-                          style={{
-                            fontSize: "1rem",
-                            width: "100%",
-                            padding: "0.5rem",
-                            borderRadius: "0.375rem",
-                            border: "1px solid #cbd5e1",
-                          }}
-                          placeholder={t("placeholderClient")}
-                          autoComplete="off"
-                        />
-                        {isClientDropdownOpen && filteredClients.length > 0 && (
-                          <ul
-                            style={{
-                              position: "absolute",
-                              top: "100%",
-                              left: 0,
-                              right: 0,
-                              backgroundColor: "white",
-                              border: "1px solid #cbd5e1",
-                              borderRadius: "0.375rem",
-                              zIndex: 10,
-                              maxHeight: "200px",
-                              overflowY: "auto",
-                              boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-                            }}
-                          >
-                            {filteredClients.map((client) => (
-                              <li
-                                key={client._id}
-                                onClick={() => selectClient(client)}
-                                style={{
-                                  padding: "0.5rem",
-                                  cursor: "pointer",
-                                  borderBottom: "1px solid #f1f5f9",
-                                }}
-                                className="hover:bg-gray-50"
-                              >
-                                <div style={{ fontWeight: "500" }}>
-                                  {client.name}
-                                </div>
-                                <div
-                                  style={{
-                                    fontSize: "0.8rem",
-                                    color: "var(--color-text-secondary)",
-                                  }}
-                                >
-                                  {client.nif}
-                                </div>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </div>
-
-                      {getSelectedClientDetails() && (
-                        <div
-                          style={{
-                            padding: "1rem",
-                            backgroundColor: "#f8fafc",
-                            borderRadius: "0.5rem",
-                            border: "1px solid #e2e8f0",
-                            marginBottom: "1rem",
-                          }}
-                        >
-                          <h4
-                            style={{
-                              margin: "0 0 0.25rem 0",
-                              fontWeight: "600",
-                              fontSize: "1rem",
-                            }}
-                          >
-                            {getSelectedClientDetails().name}
-                          </h4>
-                          {getSelectedClientDetails().email && (
-                            <div
-                              style={{ fontSize: "0.9rem", color: "#64748b" }}
-                            >
-                              {getSelectedClientDetails().email}
-                            </div>
-                          )}
-                          <div style={{ fontSize: "0.9rem", color: "#64748b" }}>
-                            NIF: {getSelectedClientDetails().nif}
-                          </div>
-                          {getSelectedClientDetails().phone && (
-                            <div
-                              style={{ fontSize: "0.9rem", color: "#64748b" }}
-                            >
-                              {t("phone")}: {getSelectedClientDetails().phone}
-                            </div>
-                          )}
-                          {getSelectedClientDetails().address && (
-                            <div
-                              style={{ fontSize: "0.9rem", color: "#64748b" }}
-                            >
-                              {[
-                                getSelectedClientDetails().address,
-                                getSelectedClientDetails().postalCode,
-                                getSelectedClientDetails().city,
-                                getSelectedClientDetails().country,
-                              ]
-                                .filter(Boolean)
-                                .join(", ")}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </>
-                  ) : (
+                  <div>
+                    <label
+                      style={{
+                        display: "block",
+                        marginBottom: "0.5rem",
+                        fontWeight: "500",
+                        color: "var(--color-text-secondary)",
+                      }}
+                    >
+                      {t("rectifyReason")}
+                    </label>
+                    <input
+                      type="text"
+                      name="rectifyReason"
+                      value={formData.rectifyReason || ""}
+                      onChange={handleChange}
+                      required
+                      placeholder={
+                        t("rectifyReason") || "Reason for rectification"
+                      }
+                      style={{
+                        padding: "0.5rem",
+                        borderRadius: "0.375rem",
+                        border: "1px solid #cbd5e1",
+                      }}
+                    />
+                  </div>
+                </>
+              )}
+              {formData.type !== "F2" && (
+                <>
+                  <div style={{ gridColumn: "span 2" }}>
                     <div
                       style={{
-                        display: "grid",
-                        gridTemplateColumns: "1fr 1fr",
-                        gap: "1rem",
+                        display: "flex",
+                        gap: "1.5rem",
                         marginBottom: "1rem",
+                        borderBottom: "1px solid #e2e8f0",
+                        paddingBottom: "0.5rem",
                       }}
                     >
-                      <div style={{ gridColumn: "span 2" }}>
-                        <label
-                          style={{
-                            display: "block",
-                            marginBottom: "0.5rem",
-                            fontWeight: "500",
-                            color: "var(--color-text-secondary)",
-                          }}
-                        >
-                          {t("name")}
-                        </label>
-                        <input
-                          type="text"
-                          name="name"
-                          value={newClientData.name}
-                          onChange={handleNewClientChange}
-                          required={clientMode === "new"}
-                          style={{
-                            fontSize: "1rem",
-                            width: "100%",
-                            padding: "0.5rem",
-                            borderRadius: "0.375rem",
-                            border: "1px solid #cbd5e1",
-                          }}
-                        />
-                      </div>
-                      <div>
-                        <label
-                          style={{
-                            display: "block",
-                            marginBottom: "0.5rem",
-                            fontWeight: "500",
-                            color: "var(--color-text-secondary)",
-                          }}
-                        >
-                          {t("clientNIF")}
-                        </label>
-                        <input
-                          type="text"
-                          name="nif"
-                          value={newClientData.nif}
-                          onChange={handleNewClientChange}
-                          required={clientMode === "new"}
-                          style={{
-                            fontSize: "1rem",
-                            width: "100%",
-                            padding: "0.5rem",
-                            borderRadius: "0.375rem",
-                            border: "1px solid #cbd5e1",
-                          }}
-                        />
-                      </div>
-                      <div>
-                        <label
-                          style={{
-                            display: "block",
-                            marginBottom: "0.5rem",
-                            fontWeight: "500",
-                            color: "var(--color-text-secondary)",
-                          }}
-                        >
-                          {t("address")}
-                        </label>
-                        <textarea
-                          name="address"
-                          value={newClientData.address}
-                          onChange={handleNewClientChange}
-                          rows="1"
-                          style={{
-                            fontSize: "1rem",
-                            width: "100%",
-                            padding: "0.5rem",
-                            borderRadius: "0.375rem",
-                            border: "1px solid #cbd5e1",
-                            fontFamily: "inherit",
-                          }}
-                        />
-                      </div>
-                      <div>
-                        <label
-                          style={{
-                            display: "block",
-                            marginBottom: "0.5rem",
-                            fontWeight: "500",
-                            color: "var(--color-text-secondary)",
-                          }}
-                        >
-                          {t("postalCode")}
-                        </label>
-                        <input
-                          type="text"
-                          name="postalCode"
-                          value={newClientData.postalCode}
-                          onChange={handleNewClientChange}
-                          style={{
-                            fontSize: "1rem",
-                            width: "100%",
-                            padding: "0.5rem",
-                            borderRadius: "0.375rem",
-                            border: "1px solid #cbd5e1",
-                          }}
-                        />
-                      </div>
-                      <div>
-                        <label
-                          style={{
-                            display: "block",
-                            marginBottom: "0.5rem",
-                            fontWeight: "500",
-                            color: "var(--color-text-secondary)",
-                          }}
-                        >
-                          {t("city")}
-                        </label>
-                        <input
-                          type="text"
-                          name="city"
-                          value={newClientData.city}
-                          onChange={handleNewClientChange}
-                          style={{
-                            fontSize: "1rem",
-                            width: "100%",
-                            padding: "0.5rem",
-                            borderRadius: "0.375rem",
-                            border: "1px solid #cbd5e1",
-                          }}
-                        />
-                      </div>
-                      <div>
-                        <label
-                          style={{
-                            display: "block",
-                            marginBottom: "0.5rem",
-                            fontWeight: "500",
-                            color: "var(--color-text-secondary)",
-                          }}
-                        >
-                          {t("province")}
-                        </label>
-                        <input
-                          type="text"
-                          name="province"
-                          value={newClientData.province}
-                          onChange={handleNewClientChange}
-                          style={{
-                            fontSize: "1rem",
-                            width: "100%",
-                            padding: "0.5rem",
-                            borderRadius: "0.375rem",
-                            border: "1px solid #cbd5e1",
-                          }}
-                        />
-                      </div>
-                      <div>
-                        <label
-                          style={{
-                            display: "block",
-                            marginBottom: "0.5rem",
-                            fontWeight: "500",
-                            color: "var(--color-text-secondary)",
-                          }}
-                        >
-                          {t("country")}
-                        </label>
-                        <input
-                          type="text"
-                          name="country"
-                          value={newClientData.country}
-                          onChange={handleNewClientChange}
-                          style={{
-                            fontSize: "1rem",
-                            width: "100%",
-                            padding: "0.5rem",
-                            borderRadius: "0.375rem",
-                            border: "1px solid #cbd5e1",
-                          }}
-                        />
-                      </div>
-                      <div>
-                        <label
-                          style={{
-                            display: "block",
-                            marginBottom: "0.5rem",
-                            fontWeight: "500",
-                            color: "var(--color-text-secondary)",
-                          }}
-                        >
-                          {t("email")}
-                        </label>
-                        <input
-                          type="email"
-                          name="email"
-                          value={newClientData.email}
-                          onChange={handleNewClientChange}
-                          style={{
-                            fontSize: "1rem",
-                            width: "100%",
-                            padding: "0.5rem",
-                            borderRadius: "0.375rem",
-                            border: "1px solid #cbd5e1",
-                          }}
-                        />
-                      </div>
-                      <div>
-                        <label
-                          style={{
-                            display: "block",
-                            marginBottom: "0.5rem",
-                            fontWeight: "500",
-                            color: "var(--color-text-secondary)",
-                          }}
-                        >
-                          {t("phone")}
-                        </label>
-                        <input
-                          type="text"
-                          name="phone"
-                          value={newClientData.phone}
-                          onChange={handleNewClientChange}
-                          style={{
-                            fontSize: "1rem",
-                            width: "100%",
-                            padding: "0.5rem",
-                            borderRadius: "0.375rem",
-                            border: "1px solid #cbd5e1",
-                          }}
-                        />
-                      </div>
-                      <div style={{ gridColumn: "span 2" }}>
-                        <label
-                          style={{
-                            display: "block",
-                            marginBottom: "0.5rem",
-                            fontWeight: "500",
-                            color: "var(--color-text-secondary)",
-                          }}
-                        >
-                          {t("paymentMethod")}
-                        </label>
-                        <select
-                          name="paymentMethod"
-                          value={newClientData.paymentMethod}
-                          onChange={handleNewClientChange}
-                          style={{
-                            fontSize: "1rem",
-                            width: "100%",
-                            padding: "0.5rem",
-                            borderRadius: "0.375rem",
-                            border: "1px solid #cbd5e1",
-                          }}
-                        >
-                          <option value="Transferencia">
-                            {t("transfer") || "Transferencia"}
-                          </option>
-                          <option value="Efectivo">
-                            {t("cash") || "Efectivo"}
-                          </option>
-                          <option value="Tarjeta">
-                            {t("card") || "Tarjeta"}
-                          </option>
-                          <option value="Domiciliación bancaria">
-                            {t("directDebit") || "Domiciliación bancaria"}
-                          </option>
-                        </select>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setClientMode("existing")}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          borderBottom:
+                            clientMode === "existing"
+                              ? "2px solid #6366f1"
+                              : "2px solid transparent",
+                          color:
+                            clientMode === "existing" ? "#6366f1" : "#64748b",
+                          fontWeight: "600",
+                          padding: "0.5rem 0",
+                          cursor: "pointer",
+                        }}
+                      >
+                        {t("chooseExistingClient")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setClientMode("new")}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          borderBottom:
+                            clientMode === "new"
+                              ? "2px solid #6366f1"
+                              : "2px solid transparent",
+                          color: clientMode === "new" ? "#6366f1" : "#64748b",
+                          fontWeight: "600",
+                          padding: "0.5rem 0",
+                          cursor: "pointer",
+                        }}
+                      >
+                        + {t("createNewClient")}
+                      </button>
+                    </div>
 
-                      <div style={{ gridColumn: "span 2" }}>
+                    {clientMode === "existing" ? (
+                      <>
                         <label
                           style={{
                             display: "block",
@@ -1127,31 +845,153 @@ const InvoiceForm = () => {
                             color: "var(--color-text-secondary)",
                           }}
                         >
-                          {t("paymentTerms")}
+                          {t("clientName")}
                         </label>
-                        <select
-                          name="paymentTerms"
-                          value={newClientData.paymentTerms}
-                          onChange={handleNewClientChange}
-                          style={{
-                            fontSize: "1rem",
-                            width: "100%",
-                            padding: "0.5rem",
-                            borderRadius: "0.375rem",
-                            border: "1px solid #cbd5e1",
-                          }}
+                        <div
+                          style={{ position: "relative", marginBottom: "1rem" }}
                         >
-                          <option value="1 day">{t("1 day")}</option>
-                          <option value="7 days">{t("7 days")}</option>
-                          <option value="15 days">{t("15 days")}</option>
-                          <option value="30 days">{t("30 days")}</option>
-                          <option value="45 days">{t("45 days")}</option>
-                          <option value="60 days">{t("60 days")}</option>
-                          <option value="Manual">{t("Manual")}</option>
-                        </select>
-                      </div>
+                          <input
+                            type="text"
+                            name="clientName"
+                            value={formData.clientName}
+                            onChange={handleClientNameChange}
+                            onFocus={() => {
+                              if (clients.length > 0) {
+                                setFilteredClients(clients);
+                                setIsClientDropdownOpen(true);
+                              }
+                            }}
+                            onBlur={() =>
+                              setTimeout(
+                                () => setIsClientDropdownOpen(false),
+                                200,
+                              )
+                            }
+                            required={
+                              formData.type !== "F2" &&
+                              formData.status !== "Draft" &&
+                              clientMode === "existing"
+                            }
+                            style={{
+                              fontSize: "1rem",
+                              width: "100%",
+                              padding: "0.5rem",
+                              borderRadius: "0.375rem",
+                              border: "1px solid #cbd5e1",
+                            }}
+                            placeholder={t("placeholderClient")}
+                            autoComplete="off"
+                          />
+                          {isClientDropdownOpen &&
+                            filteredClients.length > 0 && (
+                              <ul
+                                style={{
+                                  position: "absolute",
+                                  top: "100%",
+                                  left: 0,
+                                  right: 0,
+                                  backgroundColor: "white",
+                                  border: "1px solid #cbd5e1",
+                                  borderRadius: "0.375rem",
+                                  zIndex: 10,
+                                  maxHeight: "200px",
+                                  overflowY: "auto",
+                                  boxShadow:
+                                    "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                                }}
+                              >
+                                {filteredClients.map((client) => (
+                                  <li
+                                    key={client._id}
+                                    onClick={() => selectClient(client)}
+                                    style={{
+                                      padding: "0.5rem",
+                                      cursor: "pointer",
+                                      borderBottom: "1px solid #f1f5f9",
+                                    }}
+                                    className="hover:bg-gray-50"
+                                  >
+                                    <div style={{ fontWeight: "500" }}>
+                                      {client.name}
+                                    </div>
+                                    <div
+                                      style={{
+                                        fontSize: "0.8rem",
+                                        color: "var(--color-text-secondary)",
+                                      }}
+                                    >
+                                      {client.nif}
+                                    </div>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                        </div>
 
-                      {newClientData.paymentTerms === "Manual" && (
+                        {getSelectedClientDetails() && (
+                          <div
+                            style={{
+                              padding: "1rem",
+                              backgroundColor: "#f8fafc",
+                              borderRadius: "0.5rem",
+                              border: "1px solid #e2e8f0",
+                              marginBottom: "1rem",
+                            }}
+                          >
+                            <h4
+                              style={{
+                                margin: "0 0 0.25rem 0",
+                                fontWeight: "600",
+                                fontSize: "1rem",
+                              }}
+                            >
+                              {getSelectedClientDetails().name}
+                            </h4>
+                            {getSelectedClientDetails().email && (
+                              <div
+                                style={{ fontSize: "0.9rem", color: "#64748b" }}
+                              >
+                                {getSelectedClientDetails().email}
+                              </div>
+                            )}
+                            <div
+                              style={{ fontSize: "0.9rem", color: "#64748b" }}
+                            >
+                              NIF: {getSelectedClientDetails().nif}
+                            </div>
+                            {getSelectedClientDetails().phone && (
+                              <div
+                                style={{ fontSize: "0.9rem", color: "#64748b" }}
+                              >
+                                {t("phone")}: {getSelectedClientDetails().phone}
+                              </div>
+                            )}
+                            {getSelectedClientDetails().address && (
+                              <div
+                                style={{ fontSize: "0.9rem", color: "#64748b" }}
+                              >
+                                {[
+                                  getSelectedClientDetails().address,
+                                  getSelectedClientDetails().postalCode,
+                                  getSelectedClientDetails().city,
+                                  getSelectedClientDetails().country,
+                                ]
+                                  .filter(Boolean)
+                                  .join(", ")}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "1fr 1fr",
+                          gap: "1rem",
+                          marginBottom: "1rem",
+                        }}
+                      >
                         <div style={{ gridColumn: "span 2" }}>
                           <label
                             style={{
@@ -1161,18 +1001,14 @@ const InvoiceForm = () => {
                               color: "var(--color-text-secondary)",
                             }}
                           >
-                            {t("paymentTermsManualPlaceholder")}
+                            {t("name")}
                           </label>
                           <input
                             type="text"
-                            name="paymentTermsManual"
-                            value={newClientData.paymentTermsManual}
+                            name="name"
+                            value={newClientData.name}
                             onChange={handleNewClientChange}
-                            required={
-                              formData.type !== "F2" &&
-                              formData.status !== "Draft" &&
-                              clientMode === "new"
-                            }
+                            required={clientMode === "new"}
                             style={{
                               fontSize: "1rem",
                               width: "100%",
@@ -1182,171 +1018,475 @@ const InvoiceForm = () => {
                             }}
                           />
                         </div>
-                      )}
-                    </div>
+                        <div>
+                          <label
+                            style={{
+                              display: "block",
+                              marginBottom: "0.5rem",
+                              fontWeight: "500",
+                              color: "var(--color-text-secondary)",
+                            }}
+                          >
+                            {t("clientNIF")}
+                          </label>
+                          <input
+                            type="text"
+                            name="nif"
+                            value={newClientData.nif}
+                            onChange={handleNewClientChange}
+                            required={clientMode === "new"}
+                            style={{
+                              fontSize: "1rem",
+                              width: "100%",
+                              padding: "0.5rem",
+                              borderRadius: "0.375rem",
+                              border: "1px solid #cbd5e1",
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <label
+                            style={{
+                              display: "block",
+                              marginBottom: "0.5rem",
+                              fontWeight: "500",
+                              color: "var(--color-text-secondary)",
+                            }}
+                          >
+                            {t("address")}
+                          </label>
+                          <textarea
+                            name="address"
+                            value={newClientData.address}
+                            onChange={handleNewClientChange}
+                            rows="1"
+                            style={{
+                              fontSize: "1rem",
+                              width: "100%",
+                              padding: "0.5rem",
+                              borderRadius: "0.375rem",
+                              border: "1px solid #cbd5e1",
+                              fontFamily: "inherit",
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <label
+                            style={{
+                              display: "block",
+                              marginBottom: "0.5rem",
+                              fontWeight: "500",
+                              color: "var(--color-text-secondary)",
+                            }}
+                          >
+                            {t("postalCode")}
+                          </label>
+                          <input
+                            type="text"
+                            name="postalCode"
+                            value={newClientData.postalCode}
+                            onChange={handleNewClientChange}
+                            style={{
+                              fontSize: "1rem",
+                              width: "100%",
+                              padding: "0.5rem",
+                              borderRadius: "0.375rem",
+                              border: "1px solid #cbd5e1",
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <label
+                            style={{
+                              display: "block",
+                              marginBottom: "0.5rem",
+                              fontWeight: "500",
+                              color: "var(--color-text-secondary)",
+                            }}
+                          >
+                            {t("city")}
+                          </label>
+                          <input
+                            type="text"
+                            name="city"
+                            value={newClientData.city}
+                            onChange={handleNewClientChange}
+                            style={{
+                              fontSize: "1rem",
+                              width: "100%",
+                              padding: "0.5rem",
+                              borderRadius: "0.375rem",
+                              border: "1px solid #cbd5e1",
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <label
+                            style={{
+                              display: "block",
+                              marginBottom: "0.5rem",
+                              fontWeight: "500",
+                              color: "var(--color-text-secondary)",
+                            }}
+                          >
+                            {t("province")}
+                          </label>
+                          <input
+                            type="text"
+                            name="province"
+                            value={newClientData.province}
+                            onChange={handleNewClientChange}
+                            style={{
+                              fontSize: "1rem",
+                              width: "100%",
+                              padding: "0.5rem",
+                              borderRadius: "0.375rem",
+                              border: "1px solid #cbd5e1",
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <label
+                            style={{
+                              display: "block",
+                              marginBottom: "0.5rem",
+                              fontWeight: "500",
+                              color: "var(--color-text-secondary)",
+                            }}
+                          >
+                            {t("country")}
+                          </label>
+                          <input
+                            type="text"
+                            name="country"
+                            value={newClientData.country}
+                            onChange={handleNewClientChange}
+                            style={{
+                              fontSize: "1rem",
+                              width: "100%",
+                              padding: "0.5rem",
+                              borderRadius: "0.375rem",
+                              border: "1px solid #cbd5e1",
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <label
+                            style={{
+                              display: "block",
+                              marginBottom: "0.5rem",
+                              fontWeight: "500",
+                              color: "var(--color-text-secondary)",
+                            }}
+                          >
+                            {t("email")}
+                          </label>
+                          <input
+                            type="email"
+                            name="email"
+                            value={newClientData.email}
+                            onChange={handleNewClientChange}
+                            style={{
+                              fontSize: "1rem",
+                              width: "100%",
+                              padding: "0.5rem",
+                              borderRadius: "0.375rem",
+                              border: "1px solid #cbd5e1",
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <label
+                            style={{
+                              display: "block",
+                              marginBottom: "0.5rem",
+                              fontWeight: "500",
+                              color: "var(--color-text-secondary)",
+                            }}
+                          >
+                            {t("phone")}
+                          </label>
+                          <input
+                            type="text"
+                            name="phone"
+                            value={newClientData.phone}
+                            onChange={handleNewClientChange}
+                            style={{
+                              fontSize: "1rem",
+                              width: "100%",
+                              padding: "0.5rem",
+                              borderRadius: "0.375rem",
+                              border: "1px solid #cbd5e1",
+                            }}
+                          />
+                        </div>
+                        <div style={{ gridColumn: "span 2" }}>
+                          <label
+                            style={{
+                              display: "block",
+                              marginBottom: "0.5rem",
+                              fontWeight: "500",
+                              color: "var(--color-text-secondary)",
+                            }}
+                          >
+                            {t("paymentMethod")}
+                          </label>
+                          <select
+                            name="paymentMethod"
+                            value={newClientData.paymentMethod}
+                            onChange={handleNewClientChange}
+                            style={{
+                              fontSize: "1rem",
+                              width: "100%",
+                              padding: "0.5rem",
+                              borderRadius: "0.375rem",
+                              border: "1px solid #cbd5e1",
+                            }}
+                          >
+                            <option value="Transferencia">
+                              {t("transfer") || "Transferencia"}
+                            </option>
+                            <option value="Efectivo">
+                              {t("cash") || "Efectivo"}
+                            </option>
+                            <option value="Tarjeta">
+                              {t("card") || "Tarjeta"}
+                            </option>
+                            <option value="Domiciliación bancaria">
+                              {t("directDebit") || "Domiciliación bancaria"}
+                            </option>
+                          </select>
+                        </div>
+
+                        <div style={{ gridColumn: "span 2" }}>
+                          <label
+                            style={{
+                              display: "block",
+                              marginBottom: "0.5rem",
+                              fontWeight: "500",
+                              color: "var(--color-text-secondary)",
+                            }}
+                          >
+                            {t("paymentTerms")}
+                          </label>
+                          <select
+                            name="paymentTerms"
+                            value={newClientData.paymentTerms}
+                            onChange={handleNewClientChange}
+                            style={{
+                              fontSize: "1rem",
+                              width: "100%",
+                              padding: "0.5rem",
+                              borderRadius: "0.375rem",
+                              border: "1px solid #cbd5e1",
+                            }}
+                          >
+                            <option value="1 day">{t("1 day")}</option>
+                            <option value="7 days">{t("7 days")}</option>
+                            <option value="15 days">{t("15 days")}</option>
+                            <option value="30 days">{t("30 days")}</option>
+                            <option value="45 days">{t("45 days")}</option>
+                            <option value="60 days">{t("60 days")}</option>
+                            <option value="Manual">{t("Manual")}</option>
+                          </select>
+                        </div>
+
+                        {newClientData.paymentTerms === "Manual" && (
+                          <div style={{ gridColumn: "span 2" }}>
+                            <label
+                              style={{
+                                display: "block",
+                                marginBottom: "0.5rem",
+                                fontWeight: "500",
+                                color: "var(--color-text-secondary)",
+                              }}
+                            >
+                              {t("paymentTermsManualPlaceholder")}
+                            </label>
+                            <input
+                              type="text"
+                              name="paymentTermsManual"
+                              value={newClientData.paymentTermsManual}
+                              onChange={handleNewClientChange}
+                              required={
+                                formData.type !== "F2" &&
+                                formData.status !== "Draft" &&
+                                clientMode === "new"
+                              }
+                              style={{
+                                fontSize: "1rem",
+                                width: "100%",
+                                padding: "0.5rem",
+                                borderRadius: "0.375rem",
+                                border: "1px solid #cbd5e1",
+                              }}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "0.5rem",
+                    fontWeight: "500",
+                    color: "var(--color-text-secondary)",
+                  }}
+                >
+                  {t("serie")}
+                </label>
+                <select
+                  name="serie"
+                  value={formData.serie}
+                  onChange={handleChange}
+                  disabled={formData.status === "Draft"}
+                  style={{
+                    padding: "0.5rem",
+                    borderRadius: "0.375rem",
+                    border: "1px solid #cbd5e1",
+                    backgroundColor:
+                      formData.status === "Draft" ? "#f3f4f6" : "white",
+                    cursor:
+                      formData.status === "Draft" ? "not-allowed" : "default",
+                  }}
+                >
+                  {isRectifyMode ? (
+                    <>
+                      <option value="R2025">R2025</option>
+                      <option value="R2026">R2026</option>
+                    </>
+                  ) : (
+                    <>
+                      <option value="A2025">A2025</option>
+                      <option value="A2026">A2026</option>
+                    </>
                   )}
-                </div>
-              </>
-            )}
-            <div>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: "0.5rem",
-                  fontWeight: "500",
-                  color: "var(--color-text-secondary)",
-                }}
-              >
-                {t("serie")}
-              </label>
-              <select
-                name="serie"
-                value={formData.serie}
-                onChange={handleChange}
-                disabled={formData.status === "Draft"}
-                style={{
-                  padding: "0.5rem",
-                  borderRadius: "0.375rem",
-                  border: "1px solid #cbd5e1",
-                  backgroundColor:
-                    formData.status === "Draft" ? "#f3f4f6" : "white",
-                  cursor:
-                    formData.status === "Draft" ? "not-allowed" : "default",
-                }}
-              >
-                {isRectifyMode ? (
-                  <>
-                    <option value="R2025">R2025</option>
-                    <option value="R2026">R2026</option>
-                  </>
-                ) : (
-                  <>
-                    <option value="A2025">A2025</option>
-                    <option value="A2026">A2026</option>
-                  </>
-                )}
-              </select>
-            </div>
+                </select>
+              </div>
 
-            <div>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: "0.5rem",
-                  fontWeight: "500",
-                  color: "var(--color-text-secondary)",
-                }}
-              >
-                {t("type") || "Type"}
-              </label>
-              <select
-                name="type"
-                value={formData.type}
-                onChange={handleChange}
-                style={{
-                  width: "100%",
-                  padding: "0.5rem",
-                  borderRadius: "0.375rem",
-                  border: "1px solid #cbd5e1",
-                }}
-              >
-                {isRectifyMode ? (
-                  <>
-                    <option value="R1">R1</option>
-                    <option value="R4">R4</option>
-                  </>
-                ) : (
-                  <>
-                    <option value="F1">F1</option>
-                    <option value="F2">F2</option>
-                  </>
-                )}
-              </select>
-            </div>
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "0.5rem",
+                    fontWeight: "500",
+                    color: "var(--color-text-secondary)",
+                  }}
+                >
+                  {t("type") || "Type"}
+                </label>
+                <select
+                  name="type"
+                  value={formData.type}
+                  onChange={handleChange}
+                  style={{
+                    width: "100%",
+                    padding: "0.5rem",
+                    borderRadius: "0.375rem",
+                    border: "1px solid #cbd5e1",
+                  }}
+                >
+                  {isRectifyMode ? (
+                    <>
+                      <option value="R1">R1</option>
+                      <option value="R4">R4</option>
+                    </>
+                  ) : (
+                    <>
+                      <option value="F1">F1</option>
+                      <option value="F2">F2</option>
+                    </>
+                  )}
+                </select>
+              </div>
 
-            <div>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: "0.5rem",
-                  fontWeight: "500",
-                  color: "var(--color-text-secondary)",
-                }}
-              >
-                {t("invoiceNumber")}
-              </label>
-              <input
-                type="text"
-                name="invoiceNumber"
-                value={formData.invoiceNumber}
-                onChange={handleChange}
-                required={formData.status !== "Draft"}
-                disabled={formData.status === "Draft"}
-                readOnly
-                placeholder={
-                  formData.status === "Draft" ? "-" : t("placeholderInvoice")
-                }
-                style={{
-                  backgroundColor: "#f3f4f6",
-                  cursor: "not-allowed",
-                }}
-              />
-            </div>
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "0.5rem",
+                    fontWeight: "500",
+                    color: "var(--color-text-secondary)",
+                  }}
+                >
+                  {t("invoiceNumber")}
+                </label>
+                <input
+                  type="text"
+                  name="invoiceNumber"
+                  value={formData.invoiceNumber}
+                  onChange={handleChange}
+                  required={formData.status !== "Draft"}
+                  disabled={formData.status === "Draft"}
+                  readOnly
+                  placeholder={
+                    formData.status === "Draft" ? "-" : t("placeholderInvoice")
+                  }
+                  style={{
+                    backgroundColor: "#f3f4f6",
+                    cursor: "not-allowed",
+                  }}
+                />
+              </div>
 
-            <div>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: "0.5rem",
-                  fontWeight: "500",
-                  color: "var(--color-text-secondary)",
-                }}
-              >
-                {t("orderNumber") || "Order Number"}
-              </label>
-              <input
-                type="text"
-                name="orderNumber"
-                value={formData.orderNumber || ""}
-                onChange={handleChange}
-                required={formData.status !== "Draft"}
-                placeholder="000000"
-                style={{
-                  width: "100%",
-                  padding: "0.5rem",
-                  borderRadius: "0.375rem",
-                  border: "1px solid #cbd5e1",
-                }}
-              />
-            </div>
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "0.5rem",
+                    fontWeight: "500",
+                    color: "var(--color-text-secondary)",
+                  }}
+                >
+                  {t("orderNumber") || "Order Number"}
+                </label>
+                <input
+                  type="text"
+                  name="orderNumber"
+                  value={formData.orderNumber || ""}
+                  onChange={handleChange}
+                  required={formData.status !== "Draft"}
+                  placeholder="000000"
+                  style={{
+                    width: "100%",
+                    padding: "0.5rem",
+                    borderRadius: "0.375rem",
+                    border: "1px solid #cbd5e1",
+                  }}
+                />
+              </div>
 
-            <div>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: "0.5rem",
-                  fontWeight: "500",
-                  color: "var(--color-text-secondary)",
-                }}
-              >
-                {t("externalDocumentNumber") || "External Document #"}
-              </label>
-              <input
-                type="text"
-                name="externalDocumentNumber"
-                value={formData.externalDocumentNumber || ""}
-                onChange={handleChange}
-                placeholder="000000"
-                style={{
-                  width: "100%",
-                  padding: "0.5rem",
-                  borderRadius: "0.375rem",
-                  border: "1px solid #cbd5e1",
-                }}
-              />
-            </div>
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "0.5rem",
+                    fontWeight: "500",
+                    color: "var(--color-text-secondary)",
+                  }}
+                >
+                  {t("externalDocumentNumber") || "External Document #"}
+                </label>
+                <input
+                  type="text"
+                  name="externalDocumentNumber"
+                  value={formData.externalDocumentNumber || ""}
+                  onChange={handleChange}
+                  placeholder="000000"
+                  style={{
+                    width: "100%",
+                    padding: "0.5rem",
+                    borderRadius: "0.375rem",
+                    border: "1px solid #cbd5e1",
+                  }}
+                />
+              </div>
 
-            {/* <div>
+              {/* <div>
               <label
                 style={{
                   display: "block",
@@ -1387,370 +1527,511 @@ const InvoiceForm = () => {
               />
             </div>
               */}
-            <div>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: "0.5rem",
-                  fontWeight: "500",
-                  color: "var(--color-text-secondary)",
-                }}
-              >
-                {t("dueDate") || "Due Date"}
-              </label>
-              <div style={{ display: "flex", gap: "0.5rem" }}>
-                <select
-                  value={paymentTerm}
-                  onChange={handleTermChange}
+              <div>
+                <label
                   style={{
+                    display: "block",
+                    marginBottom: "0.5rem",
+                    fontWeight: "500",
+                    color: "var(--color-text-secondary)",
+                  }}
+                >
+                  {t("dueDate") || "Due Date"}
+                </label>
+                <div style={{ display: "flex", gap: "0.5rem" }}>
+                  <select
+                    value={paymentTerm}
+                    onChange={handleTermChange}
+                    style={{
+                      padding: "0.5rem",
+                      borderRadius: "0.375rem",
+                      border: "1px solid #cbd5e1",
+                      backgroundColor: "white",
+                    }}
+                  >
+                    <option value="0">{t("today") || "Today"}</option>
+                    <option value="1">1 {t("day") || "day"}</option>
+                    <option value="7">7 {t("days") || "days"}</option>
+                    <option value="15">15 {t("days") || "days"}</option>
+                    <option value="30">30 {t("days") || "days"}</option>
+                    <option value="45">45 {t("days") || "days"}</option>
+                    <option value="60">60 {t("days") || "days"}</option>
+                    <option value="custom">{t("manual") || "Manual"}</option>
+                  </select>
+                  <input
+                    type="date"
+                    name="dueDate"
+                    value={formData.dueDate}
+                    onChange={(e) => {
+                      handleChange(e);
+                      setPaymentTerm("custom");
+                    }}
+                    required
+                    style={{ flex: 1 }}
+                    readOnly={paymentTerm !== "custom"}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "0.5rem",
+                    fontWeight: "500",
+                    color: "var(--color-text-secondary)",
+                  }}
+                >
+                  {t("paymentMethod")}
+                </label>
+                <select
+                  name="paymentMethod"
+                  value={formData.paymentMethod}
+                  onChange={handleChange}
+                  style={{
+                    width: "100%",
                     padding: "0.5rem",
                     borderRadius: "0.375rem",
                     border: "1px solid #cbd5e1",
-                    backgroundColor: "white",
                   }}
                 >
-                  <option value="0">{t("today") || "Today"}</option>
-                  <option value="1">1 {t("day") || "day"}</option>
-                  <option value="7">7 {t("days") || "days"}</option>
-                  <option value="15">15 {t("days") || "days"}</option>
-                  <option value="30">30 {t("days") || "days"}</option>
-                  <option value="45">45 {t("days") || "days"}</option>
-                  <option value="60">60 {t("days") || "days"}</option>
-                  <option value="custom">{t("manual") || "Manual"}</option>
+                  <option value="Transferencia">{t("transfer")}</option>
+                  <option value="Efectivo">{t("cash")}</option>
+                  <option value="Tarjeta">{t("card")}</option>
+                  <option value="Domiciliación bancaria">
+                    {t("directDebit")}
+                  </option>
                 </select>
-                <input
-                  type="date"
-                  name="dueDate"
-                  value={formData.dueDate}
-                  onChange={(e) => {
-                    handleChange(e);
-                    setPaymentTerm("custom");
-                  }}
-                  required
-                  style={{ flex: 1 }}
-                  readOnly={paymentTerm !== "custom"}
-                />
               </div>
-            </div>
 
-            <div>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: "0.5rem",
-                  fontWeight: "500",
-                  color: "var(--color-text-secondary)",
-                }}
-              >
-                {t("paymentMethod")}
-              </label>
-              <select
-                name="paymentMethod"
-                value={formData.paymentMethod}
-                onChange={handleChange}
-                style={{
-                  width: "100%",
-                  padding: "0.5rem",
-                  borderRadius: "0.375rem",
-                  border: "1px solid #cbd5e1",
-                }}
-              >
-                <option value="Transferencia">{t("transfer")}</option>
-                <option value="Efectivo">{t("cash")}</option>
-                <option value="Tarjeta">{t("card")}</option>
-                <option value="Domiciliación bancaria">
-                  {t("directDebit")}
-                </option>
-              </select>
-            </div>
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "0.5rem",
+                    fontWeight: "500",
+                    color: "var(--color-text-secondary)",
+                  }}
+                >
+                  {t("status")}
+                </label>
+                <select
+                  name="status"
+                  value={formData.status}
+                  onChange={handleChange}
+                  style={{
+                    width: "100%",
+                    padding: "0.5rem",
+                    borderRadius: "0.375rem",
+                    border: "1px solid #cbd5e1",
+                  }}
+                >
+                  <option value="Draft">{t("statusDraft")}</option>
+                  <option value="Pending">{t("statusPending")}</option>
+                  <option value="Paid">{t("statusPaid")}</option>
+                </select>
+              </div>
 
-            <div>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: "0.5rem",
-                  fontWeight: "500",
-                  color: "var(--color-text-secondary)",
-                }}
-              >
-                {t("status")}
-              </label>
-              <select
-                name="status"
-                value={formData.status}
-                onChange={handleChange}
-                style={{
-                  width: "100%",
-                  padding: "0.5rem",
-                  borderRadius: "0.375rem",
-                  border: "1px solid #cbd5e1",
-                }}
-              >
-                <option value="Draft">{t("statusDraft")}</option>
-                <option value="Pending">{t("statusPending")}</option>
-                <option value="Paid">{t("statusPaid")}</option>
-              </select>
-            </div>
+              <div style={{ gridColumn: "1 / -1" }}>
+                {/* Available Albaranes Section */}
+                {availableAlbaranes.length > 0 && !isViewMode && (
+                  <div
+                    style={{
+                      marginBottom: "2rem",
+                      border: "1px solid #e2e8f0",
+                      borderRadius: "0.5rem",
+                      overflow: "hidden",
+                    }}
+                  >
+                    <div
+                      role="button"
+                      onClick={() =>
+                        setIsAlbaranesCollapsed(!isAlbaranesCollapsed)
+                      }
+                      style={{
+                        padding: "1rem",
+                        backgroundColor: "#f8fafc",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <h3
+                        style={{
+                          fontSize: "1rem",
+                          fontWeight: "600",
+                          margin: 0,
+                          color: "#334155",
+                        }}
+                      >
+                        {t("availableAlbaranes") || "Available Albaranes"} (
+                        {availableAlbaranes.length})
+                      </h3>
+                      <span style={{ fontSize: "1.2rem", color: "#64748b" }}>
+                        {isAlbaranesCollapsed ? "▼" : "▲"}
+                      </span>
+                    </div>
 
-            <div style={{ gridColumn: "1 / -1" }}>
+                    {!isAlbaranesCollapsed && (
+                      <div
+                        style={{ padding: "1rem", backgroundColor: "white" }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: "0.5rem",
+                          }}
+                        >
+                          {availableAlbaranes.map((albaran) => (
+                            <div
+                              key={albaran._id}
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "0.75rem",
+                                padding: "0.5rem",
+                                borderRadius: "4px",
+                                border: "1px solid #f1f5f9",
+                              }}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={selectedAlbaranes.includes(
+                                  albaran._id,
+                                )}
+                                onChange={() => toggleAlbaranSelection(albaran)}
+                                style={{
+                                  transform: "scale(1.2)",
+                                  cursor: "pointer",
+                                }}
+                              />
+                              <div style={{ flex: 1 }}>
+                                <div
+                                  style={{
+                                    fontSize: "0.9rem",
+                                    fontWeight: "600",
+                                  }}
+                                >
+                                  {albaran.serie}
+                                  {albaran.AlbaranNumber} -{" "}
+                                  {new Date(albaran.date).toLocaleDateString()}
+                                </div>
+                                <div
+                                  style={{
+                                    fontSize: "0.8rem",
+                                    color: "#64748b",
+                                  }}
+                                >
+                                  {albaran.services
+                                    .map((s) => s.concept)
+                                    .join(", ")}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: "1rem",
+                    borderBottom: "1px solid #e2e8f0",
+                    paddingBottom: "1rem",
+                  }}
+                >
+                  <h3 style={{ fontSize: "1.1rem", fontWeight: "600" }}>
+                    {t("services")}
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={addService}
+                    className="btn btn-secondary btn-sm"
+                  >
+                    + {t("addService")}
+                  </button>
+                </div>
+
+                {formData.services.length > 0 && (
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns:
+                        "0.8fr 3.2fr 0.8fr 1.6fr 1fr 1fr 0.5fr",
+                      gap: "0.5rem",
+                      marginBottom: "0.5rem",
+                      paddingRight: "0.5rem",
+                    }}
+                  >
+                    <label
+                      style={{
+                        fontSize: "0.85rem",
+                        fontWeight: "600",
+                        color: "var(--color-text-secondary)",
+                        paddingLeft: "0.5rem",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {t("number")}
+                    </label>
+                    <label
+                      style={{
+                        fontSize: "0.85rem",
+                        fontWeight: "600",
+                        color: "var(--color-text-secondary)",
+                        paddingLeft: "0.5rem",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {t("concept")}
+                    </label>
+                    <label
+                      style={{
+                        fontSize: "0.85rem",
+                        fontWeight: "600",
+                        color: "var(--color-text-secondary)",
+                        paddingLeft: "0.5rem",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {t("quantity")}
+                    </label>
+                    <label
+                      style={{
+                        fontSize: "0.85rem",
+                        fontWeight: "600",
+                        color: "var(--color-text-secondary)",
+                        paddingLeft: "0.5rem",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {t("taxBase")}
+                    </label>
+                    <label
+                      style={{
+                        fontSize: "0.85rem",
+                        fontWeight: "600",
+                        color: "var(--color-text-secondary)",
+                        paddingLeft: "0.5rem",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {t("discount")}
+                    </label>
+                    <label
+                      style={{
+                        fontSize: "0.85rem",
+                        fontWeight: "600",
+                        color: "var(--color-text-secondary)",
+                        paddingLeft: "0.5rem",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {t("iva")}
+                    </label>
+                    <div></div>
+                  </div>
+                )}
+
+                {formData.services.map((service, index) => (
+                  <div
+                    key={index}
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns:
+                        "0.8fr 3.2fr 0.8fr 1.6fr 1fr 1fr 0.5fr",
+                      gap: "0.5rem",
+                      marginBottom: "1rem",
+                      paddingBottom: "1rem",
+                      borderBottom: "1px solid #f1f5f9",
+                      alignItems: "center",
+                    }}
+                  >
+                    <div>
+                      <input
+                        type="number"
+                        name="number"
+                        value={service.number || ""}
+                        onChange={(e) => handleServiceChange(index, e)}
+                        placeholder="Nº"
+                        style={{ width: "100%" }}
+                      />
+                    </div>
+                    <div>
+                      <input
+                        type="text"
+                        name="concept"
+                        value={service.concept}
+                        onChange={(e) => handleServiceChange(index, e)}
+                        placeholder={t("concept")}
+                        required
+                        style={{ width: "100%" }}
+                      />
+                    </div>
+                    <div>
+                      <input
+                        type="number"
+                        name="quantity"
+                        value={service.quantity}
+                        onChange={(e) => handleServiceChange(index, e)}
+                        placeholder={t("quantity")}
+                        min="1"
+                        step="1"
+                        required
+                        style={{ width: "100%" }}
+                      />
+                    </div>
+                    <div>
+                      <input
+                        type="number"
+                        name="taxBase"
+                        value={service.taxBase}
+                        onChange={(e) => handleServiceChange(index, e)}
+                        placeholder={t("taxBase")}
+                        step="0.01"
+                        required
+                        style={{ width: "100%" }}
+                      />
+                    </div>
+                    <div>
+                      <input
+                        type="number"
+                        name="discount"
+                        value={service.discount}
+                        onChange={(e) => handleServiceChange(index, e)}
+                        placeholder={t("discount")}
+                        step="0.01"
+                        min="0"
+                        max="100"
+                        style={{ width: "100%" }}
+                      />
+                    </div>
+                    <div>
+                      <input
+                        type="number"
+                        name="iva"
+                        value={service.iva}
+                        onChange={(e) => handleServiceChange(index, e)}
+                        placeholder={t("iva")}
+                        step="0.01"
+                        min="0"
+                        max="100"
+                        required
+                        style={{ width: "100%" }}
+                      />
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "center" }}>
+                      <button
+                        type="button"
+                        onClick={() => removeService(index)}
+                        style={{
+                          color: "#ef4444",
+                          background: "none",
+                          border: "none",
+                          cursor: "pointer",
+                          fontWeight: "bold",
+                          fontSize: "1.2rem",
+                          padding: "0.5rem",
+                          lineHeight: "1",
+                        }}
+                        title={t("removeService")}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
               <div
                 style={{
                   display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  marginBottom: "1rem",
-                  borderBottom: "1px solid #e2e8f0",
-                  paddingBottom: "1rem",
+                  justifyContent: "flex-end",
+                  borderTop: "1px solid #e2e8f0",
+                  paddingTop: "1.5rem",
+                  gridColumn: "1 / -1",
                 }}
               >
-                <h3 style={{ fontSize: "1.1rem", fontWeight: "600" }}>
-                  {t("services")}
-                </h3>
-                <button
-                  type="button"
-                  onClick={addService}
-                  className="btn btn-secondary btn-sm"
-                >
-                  + {t("addService")}
-                </button>
-              </div>
+                <div style={{ width: "350px" }}>
+                  {(() => {
+                    const subtotal = formData.services.reduce(
+                      (acc, s) =>
+                        acc +
+                        (parseFloat(s.taxBase) || 0) *
+                          (parseFloat(s.quantity) || 1),
+                      0,
+                    );
+                    const discountTotal = formData.services.reduce((acc, s) => {
+                      const base = parseFloat(s.taxBase) || 0;
+                      const quantity = parseFloat(s.quantity) || 1;
+                      const discount = parseFloat(s.discount) || 0;
+                      return acc + base * quantity * (discount / 100);
+                    }, 0);
+                    const taxableBase = subtotal - discountTotal;
+                    const ivaTotal = formData.services.reduce((acc, s) => {
+                      const base = parseFloat(s.taxBase) || 0;
+                      const quantity = parseFloat(s.quantity) || 1;
+                      const discount = parseFloat(s.discount) || 0;
+                      const ivaPercent = parseFloat(s.iva) || 0;
+                      const lineSubtotal = base * quantity;
+                      const lineTaxable =
+                        lineSubtotal - lineSubtotal * (discount / 100);
+                      return acc + lineTaxable * (ivaPercent / 100);
+                    }, 0);
 
-              {formData.services.length > 0 && (
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns:
-                      "0.8fr 3.2fr 0.8fr 1.6fr 1fr 1fr 0.5fr",
-                    gap: "0.5rem",
-                    marginBottom: "0.5rem",
-                    paddingRight: "0.5rem",
-                  }}
-                >
-                  <label
-                    style={{
-                      fontSize: "0.85rem",
-                      fontWeight: "600",
-                      color: "var(--color-text-secondary)",
-                      paddingLeft: "0.5rem",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {t("number")}
-                  </label>
-                  <label
-                    style={{
-                      fontSize: "0.85rem",
-                      fontWeight: "600",
-                      color: "var(--color-text-secondary)",
-                      paddingLeft: "0.5rem",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {t("concept")}
-                  </label>
-                  <label
-                    style={{
-                      fontSize: "0.85rem",
-                      fontWeight: "600",
-                      color: "var(--color-text-secondary)",
-                      paddingLeft: "0.5rem",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {t("quantity")}
-                  </label>
-                  <label
-                    style={{
-                      fontSize: "0.85rem",
-                      fontWeight: "600",
-                      color: "var(--color-text-secondary)",
-                      paddingLeft: "0.5rem",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {t("taxBase")}
-                  </label>
-                  <label
-                    style={{
-                      fontSize: "0.85rem",
-                      fontWeight: "600",
-                      color: "var(--color-text-secondary)",
-                      paddingLeft: "0.5rem",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {t("discount")}
-                  </label>
-                  <label
-                    style={{
-                      fontSize: "0.85rem",
-                      fontWeight: "600",
-                      color: "var(--color-text-secondary)",
-                      paddingLeft: "0.5rem",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {t("iva")}
-                  </label>
-                  <div></div>
-                </div>
-              )}
-
-              {formData.services.map((service, index) => (
-                <div
-                  key={index}
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns:
-                      "0.8fr 3.2fr 0.8fr 1.6fr 1fr 1fr 0.5fr",
-                    gap: "0.5rem",
-                    marginBottom: "1rem",
-                    paddingBottom: "1rem",
-                    borderBottom: "1px solid #f1f5f9",
-                    alignItems: "center",
-                  }}
-                >
-                  <div>
-                    <input
-                      type="number"
-                      name="number"
-                      value={service.number || ""}
-                      onChange={(e) => handleServiceChange(index, e)}
-                      placeholder="Nº"
-                      style={{ width: "100%" }}
-                    />
-                  </div>
-                  <div>
-                    <input
-                      type="text"
-                      name="concept"
-                      value={service.concept}
-                      onChange={(e) => handleServiceChange(index, e)}
-                      placeholder={t("concept")}
-                      required
-                      style={{ width: "100%" }}
-                    />
-                  </div>
-                  <div>
-                    <input
-                      type="number"
-                      name="quantity"
-                      value={service.quantity}
-                      onChange={(e) => handleServiceChange(index, e)}
-                      placeholder={t("quantity")}
-                      min="1"
-                      step="1"
-                      required
-                      style={{ width: "100%" }}
-                    />
-                  </div>
-                  <div>
-                    <input
-                      type="number"
-                      name="taxBase"
-                      value={service.taxBase}
-                      onChange={(e) => handleServiceChange(index, e)}
-                      placeholder={t("taxBase")}
-                      step="0.01"
-                      required
-                      style={{ width: "100%" }}
-                    />
-                  </div>
-                  <div>
-                    <input
-                      type="number"
-                      name="discount"
-                      value={service.discount}
-                      onChange={(e) => handleServiceChange(index, e)}
-                      placeholder={t("discount")}
-                      step="0.01"
-                      min="0"
-                      max="100"
-                      style={{ width: "100%" }}
-                    />
-                  </div>
-                  <div>
-                    <input
-                      type="number"
-                      name="iva"
-                      value={service.iva}
-                      onChange={(e) => handleServiceChange(index, e)}
-                      placeholder={t("iva")}
-                      step="0.01"
-                      min="0"
-                      max="100"
-                      required
-                      style={{ width: "100%" }}
-                    />
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "center" }}>
-                    <button
-                      type="button"
-                      onClick={() => removeService(index)}
-                      style={{
-                        color: "#ef4444",
-                        background: "none",
-                        border: "none",
-                        cursor: "pointer",
-                        fontWeight: "bold",
-                        fontSize: "1.2rem",
-                        padding: "0.5rem",
-                        lineHeight: "1",
-                      }}
-                      title={t("removeService")}
-                    >
-                      ×
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "flex-end",
-                borderTop: "1px solid #e2e8f0",
-                paddingTop: "1.5rem",
-                gridColumn: "1 / -1",
-              }}
-            >
-              <div style={{ width: "350px" }}>
-                {(() => {
-                  const subtotal = formData.services.reduce(
-                    (acc, s) =>
-                      acc +
-                      (parseFloat(s.taxBase) || 0) *
-                        (parseFloat(s.quantity) || 1),
-                    0
-                  );
-                  const discountTotal = formData.services.reduce((acc, s) => {
-                    const base = parseFloat(s.taxBase) || 0;
-                    const quantity = parseFloat(s.quantity) || 1;
-                    const discount = parseFloat(s.discount) || 0;
-                    return acc + base * quantity * (discount / 100);
-                  }, 0);
-                  const taxableBase = subtotal - discountTotal;
-                  const ivaTotal = formData.services.reduce((acc, s) => {
-                    const base = parseFloat(s.taxBase) || 0;
-                    const quantity = parseFloat(s.quantity) || 1;
-                    const discount = parseFloat(s.discount) || 0;
-                    const ivaPercent = parseFloat(s.iva) || 0;
-                    const lineSubtotal = base * quantity;
-                    const lineTaxable =
-                      lineSubtotal - lineSubtotal * (discount / 100);
-                    return acc + lineTaxable * (ivaPercent / 100);
-                  }, 0);
-
-                  return (
-                    <div
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: "0.5rem",
-                      }}
-                    >
-                      {discountTotal > 0 && (
+                    return (
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "0.5rem",
+                        }}
+                      >
+                        {discountTotal > 0 && (
+                          <div
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              fontSize: "0.9rem",
+                              color: "#64748b",
+                            }}
+                          >
+                            <span>{t("subtotal")}:</span>
+                            <span>€{subtotal.toFixed(2)}</span>
+                          </div>
+                        )}
+                        {discountTotal > 0 && (
+                          <div
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              fontSize: "0.9rem",
+                              color: "#64748b",
+                            }}
+                          >
+                            <span>{t("discount")}:</span>
+                            <span>-€{discountTotal.toFixed(2)}</span>
+                          </div>
+                        )}
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            fontSize: "0.9rem",
+                            color: "#1e293b",
+                            fontWeight: "600",
+                          }}
+                        >
+                          <span>{t("taxBase")}:</span>
+                          <span>€{taxableBase.toFixed(2)}</span>
+                        </div>
                         <div
                           style={{
                             display: "flex",
@@ -1759,77 +2040,42 @@ const InvoiceForm = () => {
                             color: "#64748b",
                           }}
                         >
-                          <span>{t("subtotal")}:</span>
-                          <span>€{subtotal.toFixed(2)}</span>
+                          <span>IVA %:</span>
+                          <span>€{ivaTotal.toFixed(2)}</span>
                         </div>
-                      )}
-                      {discountTotal > 0 && (
                         <div
                           style={{
                             display: "flex",
                             justifyContent: "space-between",
-                            fontSize: "0.9rem",
-                            color: "#64748b",
+                            fontSize: "1.25rem",
+                            fontWeight: "700",
+                            color: "var(--color-primary)",
+                            borderTop: "2px solid #e2e8f0",
+                            marginTop: "0.5rem",
+                            paddingTop: "0.5rem",
                           }}
                         >
-                          <span>{t("discount")}:</span>
-                          <span>-€{discountTotal.toFixed(2)}</span>
+                          <span>Total:</span>
+                          <span>€{formData.totalAmount.toFixed(2)}</span>
                         </div>
-                      )}
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          fontSize: "0.9rem",
-                          color: "#1e293b",
-                          fontWeight: "600",
-                        }}
-                      >
-                        <span>{t("taxBase")}:</span>
-                        <span>€{taxableBase.toFixed(2)}</span>
                       </div>
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          fontSize: "0.9rem",
-                          color: "#64748b",
-                        }}
-                      >
-                        <span>IVA %:</span>
-                        <span>€{ivaTotal.toFixed(2)}</span>
-                      </div>
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          fontSize: "1.25rem",
-                          fontWeight: "700",
-                          color: "var(--color-primary)",
-                          borderTop: "2px solid #e2e8f0",
-                          marginTop: "0.5rem",
-                          paddingTop: "0.5rem",
-                        }}
-                      >
-                        <span>Total:</span>
-                        <span>€{formData.totalAmount.toFixed(2)}</span>
-                      </div>
-                    </div>
-                  );
-                })()}
+                    );
+                  })()}
+                </div>
               </div>
             </div>
-          </div>
-
-          <div style={{ marginTop: "2rem" }}>
-            <button
-              type="submit"
-              className="btn btn-primary"
-              style={{ width: "100%", padding: "0.75rem" }}
-            >
-              {isEditMode ? t("updateInvoice") : t("createInvoice")}
-            </button>
-          </div>
+          </fieldset>
+          {!isViewMode && (
+            <div style={{ marginTop: "2rem" }}>
+              <button
+                type="submit"
+                className="btn btn-primary"
+                style={{ width: "100%", padding: "0.75rem" }}
+              >
+                {isEditMode ? t("updateInvoice") : t("createInvoice")}
+              </button>
+            </div>
+          )}
         </form>
       </div>
     </div>

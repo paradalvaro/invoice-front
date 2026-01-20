@@ -29,7 +29,7 @@ const AlbaranList = () => {
     setError(null);
     try {
       const response = await api.get(
-        `/albaranes?page=${pagination.currentPage}&limit=10&sortBy=${sortBy}&order=${sortOrder}&search=${search}&searchField=${searchField}&status=${statusFilter}`
+        `/albaranes?page=${pagination.currentPage}&limit=10&sortBy=${sortBy}&order=${sortOrder}&search=${search}&searchField=${searchField}&status=${statusFilter}`,
       );
       if (response.data.data) {
         setAlbaranes(response.data.data);
@@ -423,7 +423,7 @@ const AlbaranList = () => {
                           handleDownloadPDF(
                             albaran._id,
                             albaran.serie,
-                            albaran.AlbaranNumber
+                            albaran.AlbaranNumber,
                           )
                         }
                         style={{
@@ -477,6 +477,37 @@ const AlbaranList = () => {
                           <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z" />
                         </svg>
                       </Link>
+                      {albaran.status !== "Draft" && !albaran.invoiceId && (
+                        <Link
+                          to={`/invoices/new?fromAlbaran=${albaran._id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            padding: "0.5rem",
+                            fontSize: "0.8rem",
+                            backgroundColor: "#e0f2fe",
+                            border: "1px solid #bae6fd",
+                            color: "#0284c7",
+                            borderRadius: "4px",
+                            textDecoration: "none",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                          title={t("createInvoice")}
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="16"
+                            height="16"
+                            fill="currentColor"
+                            viewBox="0 0 16 16"
+                          >
+                            <path d="M14 4.5V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h5.5L14 4.5zm-3 0A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5h-2z" />
+                            <path d="M8.5 7.5a.5.5 0 0 0-1 0v3.362l-1.992-1.992a.5.5 0 0 0-.707.708l2.5 2.5a.5.5 0 0 0 .707 0l2.5-2.5a.5.5 0 0 0-.707-.708L8.5 10.862V7.5z" />
+                          </svg>
+                        </Link>
+                      )}
                       <button
                         onClick={() => handleDelete(albaran._id)}
                         style={{

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import api from "../api/axios";
 import { useLanguage } from "../context/LanguageContext";
 import { useConfig } from "../context/ConfigContext";
@@ -114,8 +114,86 @@ const AlbaranForm = () => {
     paymentTermsManual: "",
   });
 
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+  const budgetId = queryParams.get("budgetId");
+
+  const [budgetServices, setBudgetServices] = useState([]);
+  const [selectedBudgetServiceIds, setSelectedBudgetServiceIds] = useState([]);
+  const [isBudgetServicesVisible, setIsBudgetServicesVisible] = useState(true);
+
   const [isLoading, setIsLoading] = useState(true);
   const [formError, setFormError] = useState(null);
+
+  useEffect(() => {
+    if (budgetId && !isEditMode) {
+      const fetchBudget = async () => {
+        try {
+          const response = await api.get(`/budgets/${budgetId}`);
+          const budget = response.data;
+
+          if (budget) {
+            setFormData((prev) => ({
+              ...prev,
+              client: budget.client?._id || budget.client || "",
+              clientName: budget.client?.name || "",
+              paymentTerms: budget.paymentTerms || "1 day",
+              paymentTermsManual: budget.paymentTermsManual || "",
+            }));
+
+            if (budget.client) setClientMode("existing");
+
+            // Filter services that don't have an albaranId yet
+            const availableServices = (budget.services || []).filter(
+              (s) => !s.albaranId
+            );
+            setBudgetServices(availableServices);
+          }
+        } catch (err) {
+          console.error("Error fetching budget:", err);
+          showNotification("Error loading budget details", "error");
+        }
+      };
+      fetchBudget();
+    }
+  }, [budgetId, isEditMode, showNotification]);
+
+  const toggleBudgetService = (service) => {
+    const isSelected = selectedBudgetServiceIds.includes(service._id);
+
+    if (isSelected) {
+      // Remove from selection and from formData.services
+      setSelectedBudgetServiceIds((prev) =>
+        prev.filter((id) => id !== service._id)
+      );
+      setFormData((prev) => ({
+        ...prev,
+        services: prev.services.filter(
+          (s) => s._budgetServiceId !== service._id
+        ),
+      }));
+    } else {
+      // Add to selection and to formData.services
+      setSelectedBudgetServiceIds((prev) => [...prev, service._id]);
+
+      const lastNumber =
+        formData.services.length > 0
+          ? Math.max(...formData.services.map((s) => parseInt(s.number) || 0))
+          : 0;
+
+      const newService = {
+        concept: service.concept,
+        quantity: service.quantity,
+        number: lastNumber + 1,
+        _budgetServiceId: service._id, // Link to track removal
+      };
+
+      setFormData((prev) => ({
+        ...prev,
+        services: [...prev.services, newService],
+      }));
+    }
+  };
 
   useEffect(() => {
     const fetchClients = async () => {
@@ -283,6 +361,8 @@ const AlbaranForm = () => {
     const payload = {
       ...finalFormData,
       date: combineDateWithCurrentTime(finalFormData.date || getTodayStr()),
+      budgetId: budgetId || null,
+      linkedServiceIds: selectedBudgetServiceIds,
     };
 
     try {
@@ -341,6 +421,93 @@ const AlbaranForm = () => {
               }}
             >
               <strong>{t("error") || "Error"}:</strong> {formError}
+            </div>
+          )}
+
+          {/* Budget Services Selection Area */}
+          {budgetId && budgetServices.length > 0 && (
+            <div
+              style={{
+                marginBottom: "2rem",
+                border: "1px solid #e2e8f0",
+                borderRadius: "8px",
+                overflow: "hidden",
+              }}
+            >
+              <div
+                onClick={() =>
+                  setIsBudgetServicesVisible(!isBudgetServicesVisible)
+                }
+                style={{
+                  backgroundColor: "#f1f5f9",
+                  padding: "1rem",
+                  cursor: "pointer",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  fontWeight: "600",
+                  color: "#475569",
+                }}
+              >
+                <span>Available Services from Budget</span>
+                <span>{isBudgetServicesVisible ? "▼" : "▲"}</span>
+              </div>
+
+              {isBudgetServicesVisible && (
+                <div style={{ padding: "1rem", backgroundColor: "#f8fafc" }}>
+                  <p
+                    style={{
+                      fontSize: "0.9rem",
+                      color: "#64748b",
+                      marginBottom: "1rem",
+                    }}
+                  >
+                    Select the services you want to include in this Albaran.
+                  </p>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "0.5rem",
+                    }}
+                  >
+                    {budgetServices.map((service) => (
+                      <label
+                        key={service._id}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "0.75rem",
+                          padding: "0.75rem",
+                          backgroundColor: "white",
+                          border: "1px solid #e2e8f0",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedBudgetServiceIds.includes(
+                            service._id
+                          )}
+                          onChange={() => toggleBudgetService(service)}
+                          style={{ width: "1.1rem", height: "1.1rem" }}
+                        />
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontWeight: "500" }}>
+                            {service.concept}
+                          </div>
+                          <div
+                            style={{ fontSize: "0.85rem", color: "#64748b" }}
+                          >
+                            Qty: {service.quantity}
+                          </div>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
