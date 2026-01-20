@@ -405,6 +405,10 @@ const InvoiceForm = () => {
       newFormData.invoiceNumber = "";
     }
 
+    if (name === "dueDate") {
+      setPaymentTerm("custom");
+    }
+
     setFormData(newFormData);
     if (formError) setFormError(null);
   };
@@ -433,6 +437,19 @@ const InvoiceForm = () => {
       clientNIF: client.nif,
       paymentMethod: client.paymentMethod || "Transferencia",
     });
+
+    // Auto-set payment term from client
+    if (client.paymentTerms && client.paymentTerms !== "Manual") {
+      const days = client.paymentTerms.split(" ")[0];
+      setPaymentTerm(days);
+    } else if (client.paymentTerms === "Manual" && client.paymentTermsManual) {
+      // If manual, assume it contains the number of days or similar numeric string
+      const days = client.paymentTermsManual.split(" ")[0];
+      setPaymentTerm(days);
+    } else {
+      setPaymentTerm("custom");
+    }
+
     // We can store the full selected client object in a temp state to show the card details
     // But since `formData` only stores simple fields, let's use a helper or just rely on finding it in `clients`
     setIsClientDropdownOpen(false);
@@ -518,21 +535,30 @@ const InvoiceForm = () => {
       totalAmount: parseFloat(newTotal.toFixed(2)),
     });
   };
-  const handleTermChange = (e) => {
-    const term = e.target.value;
-    setPaymentTerm(term);
 
-    if (term !== "custom") {
-      const days = parseInt(term);
-      const baseDate = formData.date ? new Date(formData.date) : new Date();
+  // Link date and dueDate based on paymentTerm
+  useEffect(() => {
+    if (paymentTerm !== "custom" && formData.date && !isViewMode) {
+      const days = parseInt(paymentTerm);
+      if (isNaN(days)) return;
+
+      const baseDate = new Date(formData.date);
       const dueDate = new Date(baseDate);
       dueDate.setDate(dueDate.getDate() + days);
 
-      setFormData((prev) => ({
-        ...prev,
-        dueDate: dueDate.toISOString().split("T")[0],
-      }));
+      const formattedDueDate = dueDate.toISOString().split("T")[0];
+
+      if (formattedDueDate !== formData.dueDate) {
+        setFormData((prev) => ({
+          ...prev,
+          dueDate: formattedDueDate,
+        }));
+      }
     }
+  }, [formData.date, paymentTerm, isViewMode, formData.dueDate]);
+
+  const handleTermChange = (e) => {
+    setPaymentTerm(e.target.value);
   };
 
   const handleSubmit = async (e) => {
@@ -1449,7 +1475,6 @@ const InvoiceForm = () => {
                   name="orderNumber"
                   value={formData.orderNumber || ""}
                   onChange={handleChange}
-                  required={formData.status !== "Draft"}
                   placeholder="000000"
                   style={{
                     width: "100%",
@@ -1506,27 +1531,27 @@ const InvoiceForm = () => {
                 placeholder={t("placeholderInvoice")}
               />
             </div>
+*/}
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "0.5rem",
+                    fontWeight: "500",
+                    color: "var(--color-text-secondary)",
+                  }}
+                >
+                  {t("date")}
+                </label>
+                <input
+                  type="date"
+                  name="date"
+                  value={formData.date}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
 
-            {/* <div>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: "0.5rem",
-                  fontWeight: "500",
-                  color: "var(--color-text-secondary)",
-                }}
-              >
-                {t("date")}
-              </label>
-              <input
-                type="date"
-                name="date"
-                value={formData.date}
-                onChange={handleChange}
-                required
-              />
-            </div>
-              */}
               <div>
                 <label
                   style={{
@@ -1556,6 +1581,20 @@ const InvoiceForm = () => {
                     <option value="30">30 {t("days") || "days"}</option>
                     <option value="45">45 {t("days") || "days"}</option>
                     <option value="60">60 {t("days") || "days"}</option>
+                    {![
+                      "0",
+                      "1",
+                      "7",
+                      "15",
+                      "30",
+                      "45",
+                      "60",
+                      "custom",
+                    ].includes(paymentTerm) && (
+                      <option value={paymentTerm}>
+                        {paymentTerm} {t("days") || "days"}
+                      </option>
+                    )}
                     <option value="custom">{t("manual") || "Manual"}</option>
                   </select>
                   <input
@@ -1856,8 +1895,9 @@ const InvoiceForm = () => {
                   >
                     <div>
                       <input
-                        type="number"
+                        type="text"
                         name="number"
+                        pattern="^[a-zA-Z0-9\s\-]+$"
                         value={service.number || ""}
                         onChange={(e) => handleServiceChange(index, e)}
                         placeholder="Nº"
@@ -1865,14 +1905,19 @@ const InvoiceForm = () => {
                       />
                     </div>
                     <div>
-                      <input
-                        type="text"
+                      <textarea
                         name="concept"
                         value={service.concept}
                         onChange={(e) => handleServiceChange(index, e)}
                         placeholder={t("concept")}
                         required
-                        style={{ width: "100%" }}
+                        style={{
+                          width: "100%",
+                          padding: "0.5rem",
+                          borderRadius: "0.375rem",
+                          border: "1px solid #cbd5e1",
+                          fontFamily: "inherit",
+                        }}
                       />
                     </div>
                     <div>

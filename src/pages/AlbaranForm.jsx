@@ -45,20 +45,20 @@ const AlbaranForm = () => {
 
       const p = parts.reduce(
         (acc, part) => ({ ...acc, [part.type]: part.value }),
-        {}
+        {},
       );
       const dateFormatted = `${p.year}-${p.month.padStart(
         2,
-        "0"
+        "0",
       )}-${p.day.padStart(2, "0")}T${p.hour.padStart(
         2,
-        "0"
+        "0",
       )}:${p.minute.padStart(2, "0")}:${p.second.padStart(2, "0")}`;
 
       const diff = temp.getTime() - new Date(dateFormatted).getTime();
       return new Date(temp.getTime() + diff).toISOString();
     },
-    [config.timezone]
+    [config.timezone],
   );
 
   const getTodayStr = useCallback(() => {
@@ -145,7 +145,7 @@ const AlbaranForm = () => {
 
             // Filter services that don't have an albaranId yet
             const availableServices = (budget.services || []).filter(
-              (s) => !s.albaranId
+              (s) => !s.albaranId,
             );
             setBudgetServices(availableServices);
           }
@@ -164,12 +164,12 @@ const AlbaranForm = () => {
     if (isSelected) {
       // Remove from selection and from formData.services
       setSelectedBudgetServiceIds((prev) =>
-        prev.filter((id) => id !== service._id)
+        prev.filter((id) => id !== service._id),
       );
       setFormData((prev) => ({
         ...prev,
         services: prev.services.filter(
-          (s) => s._budgetServiceId !== service._id
+          (s) => s._budgetServiceId !== service._id,
         ),
       }));
     } else {
@@ -178,13 +178,18 @@ const AlbaranForm = () => {
 
       const lastNumber =
         formData.services.length > 0
-          ? Math.max(...formData.services.map((s) => parseInt(s.number) || 0))
+          ? Math.max(
+              ...formData.services.map((s) => {
+                const n = parseInt(s.number);
+                return isNaN(n) ? 0 : n;
+              }),
+            )
           : 0;
 
       const newService = {
         concept: service.concept,
         quantity: service.quantity,
-        number: lastNumber + 1,
+        number: (lastNumber + 1).toString(),
         _budgetServiceId: service._id, // Link to track removal
       };
 
@@ -213,7 +218,7 @@ const AlbaranForm = () => {
         try {
           if (formData.serie) {
             const res = await api.get(
-              `/albaranes/next-number?serie=${formData.serie}`
+              `/albaranes/next-number?serie=${formData.serie}`,
             );
             setFormData((prev) => ({
               ...prev,
@@ -271,7 +276,7 @@ const AlbaranForm = () => {
     setIsClientDropdownOpen(true);
     if (value) {
       const filtered = clients.filter((client) =>
-        client.name.toLowerCase().includes(value.toLowerCase())
+        client.name.toLowerCase().includes(value.toLowerCase()),
       );
       setFilteredClients(filtered);
     } else {
@@ -307,14 +312,19 @@ const AlbaranForm = () => {
   const addService = () => {
     const lastNumber =
       formData.services.length > 0
-        ? Math.max(...formData.services.map((s) => parseInt(s.number) || 0))
+        ? Math.max(
+            ...formData.services.map((s) => {
+              const n = parseInt(s.number);
+              return isNaN(n) ? 0 : n;
+            }),
+          )
         : 0;
 
     setFormData({
       ...formData,
       services: [
         ...formData.services,
-        { concept: "", quantity: 1, number: lastNumber + 1 },
+        { concept: "", quantity: 1, number: (lastNumber + 1).toString() },
       ],
     });
   };
@@ -352,7 +362,7 @@ const AlbaranForm = () => {
         console.error("Error creating new client:", err);
         setFormError(
           "Error creating new client: " +
-            (err.response?.data?.message || err.message)
+            (err.response?.data?.message || err.message),
         );
         return;
       }
@@ -488,7 +498,7 @@ const AlbaranForm = () => {
                         <input
                           type="checkbox"
                           checked={selectedBudgetServiceIds.includes(
-                            service._id
+                            service._id,
                           )}
                           onChange={() => toggleBudgetService(service)}
                           style={{ width: "1.1rem", height: "1.1rem" }}
@@ -1048,9 +1058,7 @@ const AlbaranForm = () => {
                   padding: "0.5rem",
                   borderRadius: "0.375rem",
                   border: "1px solid #cbd5e1",
-                  backgroundColor: "#f3f4f6",
                 }}
-                readOnly
               />
             </div>
 
@@ -1234,8 +1242,9 @@ const AlbaranForm = () => {
                 }}
               >
                 <input
-                  type="number"
+                  type="text"
                   name="number"
+                  pattern="^[a-zA-Z0-9\s\-]+$"
                   value={service.number}
                   onChange={(e) => handleServiceChange(index, e)}
                   style={{

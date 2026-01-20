@@ -45,20 +45,20 @@ const BudgetForm = () => {
 
       const p = parts.reduce(
         (acc, part) => ({ ...acc, [part.type]: part.value }),
-        {}
+        {},
       );
       const dateFormatted = `${p.year}-${p.month.padStart(
         2,
-        "0"
+        "0",
       )}-${p.day.padStart(2, "0")}T${p.hour.padStart(
         2,
-        "0"
+        "0",
       )}:${p.minute.padStart(2, "0")}:${p.second.padStart(2, "0")}`;
 
       const diff = temp.getTime() - new Date(dateFormatted).getTime();
       return new Date(temp.getTime() + diff).toISOString();
     },
-    [config.timezone]
+    [config.timezone],
   );
 
   const getTodayStr = useCallback(() => {
@@ -149,7 +149,7 @@ const BudgetForm = () => {
           // Fetch next number if a serie is selected
           if (formData.serie) {
             const res = await api.get(
-              `/budgets/next-number?serie=${formData.serie}`
+              `/budgets/next-number?serie=${formData.serie}`,
             );
             setFormData((prev) => ({
               ...prev,
@@ -254,7 +254,7 @@ const BudgetForm = () => {
     setIsClientDropdownOpen(true);
     if (value) {
       const filtered = clients.filter((client) =>
-        client.name.toLowerCase().includes(value.toLowerCase())
+        client.name.toLowerCase().includes(value.toLowerCase()),
       );
       setFilteredClients(filtered);
     } else {
@@ -374,7 +374,7 @@ const BudgetForm = () => {
         console.error("Error creating new client:", err);
         setFormError(
           "Error creating new client: " +
-            (err.response?.data?.message || err.message)
+            (err.response?.data?.message || err.message),
         );
         return;
       }
@@ -384,7 +384,7 @@ const BudgetForm = () => {
       ...finalFormData,
       date: combineDateWithCurrentTime(finalFormData.date || getTodayStr()),
       dueDate: combineDateWithCurrentTime(
-        finalFormData.dueDate || getTodayStr()
+        finalFormData.dueDate || getTodayStr(),
       ),
     };
 
@@ -1219,8 +1219,9 @@ const BudgetForm = () => {
                 }}
               >
                 <input
-                  type="number"
+                  type="text"
                   name="number"
+                  pattern="^[a-zA-Z0-9\s\-]+$"
                   value={service.number || ""}
                   onChange={(e) => handleServiceChange(index, e)}
                   placeholder="Nº"
@@ -1231,8 +1232,7 @@ const BudgetForm = () => {
                     border: "1px solid #cbd5e1",
                   }}
                 />
-                <input
-                  type="text"
+                <textarea
                   name="concept"
                   value={service.concept}
                   onChange={(e) => handleServiceChange(index, e)}
@@ -1331,7 +1331,7 @@ const BudgetForm = () => {
                     acc +
                     (parseFloat(s.taxBase) || 0) *
                       (parseFloat(s.quantity) || 1),
-                  0
+                  0,
                 );
                 const discountTotal = formData.services.reduce((acc, s) => {
                   const base = parseFloat(s.taxBase) || 0;
