@@ -354,7 +354,7 @@ const Modelo347 = () => {
     const box01 = selectedData.length;
     const box02 = selectedData.reduce((acc, c) => acc + c.totalAmount, 0);
     const box03 = selectedData.filter((c) =>
-      rentalClients.includes(c._id)
+      rentalClients.includes(c._id),
     ).length;
     const box04 = selectedData
       .filter((c) => rentalClients.includes(c._id))
@@ -380,7 +380,7 @@ const Modelo347 = () => {
             },
             rentalClientIds: rentalClients,
           },
-          { responseType: "blob" }
+          { responseType: "blob" },
         );
 
         const url = window.URL.createObjectURL(new Blob([response.data]));
@@ -430,7 +430,7 @@ const Modelo347 = () => {
                 placeholder="Nombre"
               />
             </div>
-            <div className="col-span-12">
+            {/*<div className="col-span-12">
               <label className="block text-xs font-bold">Domicilio</label>
               <input
                 name="address"
@@ -470,11 +470,12 @@ const Modelo347 = () => {
                 placeholder="Provincia"
               />
             </div>
+            */}
           </div>
         </div>
 
         {/* Summary Boxes Section */}
-        <div className="mb-6 p-4 border-2 border-orange-500 bg-orange-50 text-sm rounded-lg">
+        {/*<div className="mb-6 p-4 border-2 border-orange-500 bg-orange-50 text-sm rounded-lg">
           <h4 className="font-bold text-lg mb-4 text-orange-800 border-b border-orange-200 pb-2">
             Resumen de los datos incluidos en la declaración
           </h4>
@@ -537,7 +538,7 @@ const Modelo347 = () => {
             </div>
           </div>
         </div>
-
+          
         <div className="overflow-x-auto bg-white rounded shadow">
           <table className="w-full text-sm text-left">
             <thead className="bg-gray-100 uppercase text-xs">
@@ -582,6 +583,7 @@ const Modelo347 = () => {
             </tbody>
           </table>
         </div>
+        */}
         <div className="flex justify-between mt-6 print:hidden">
           <button
             className="px-4 py-2 border rounded"
