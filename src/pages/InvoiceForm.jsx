@@ -78,7 +78,7 @@ const InvoiceForm = () => {
   }, [config.timezone]);
 
   const [formData, setFormData] = useState({
-    serie: location.pathname.endsWith("/rectify") ? "R2025" : "A2025",
+    serie: "",
     type: location.pathname.endsWith("/rectify") ? "R1" : "F1",
     invoiceNumber: "",
     clientName: "",
@@ -96,23 +96,30 @@ const InvoiceForm = () => {
 
   // Reactive initialization for NEW invoices
   useEffect(() => {
-    if (
-      !isEditMode &&
-      config.timezone &&
-      (!formData.date || !formData.dueDate)
-    ) {
+    if (!isEditMode && config.timezone) {
       const today = getTodayStr();
+
+      // Find first matching serie for the mode (Rectify or Normal)
+      const matches =
+        config?.series?.invoices?.filter((s) =>
+          isRectifyMode ? s.startsWith("R") : !s.startsWith("R"),
+        ) || [];
+
       setFormData((prev) => ({
         ...prev,
         date: prev.date || today,
         dueDate: prev.dueDate || today,
+        serie: prev.serie || matches[0] || "",
       }));
     }
   }, [
     config.timezone,
+    config.series,
     isEditMode,
+    isRectifyMode,
     formData.date,
     formData.dueDate,
+    formData.serie,
     getTodayStr,
   ]);
   const [clients, setClients] = useState([]);
@@ -168,7 +175,7 @@ const InvoiceForm = () => {
       const formattedDueDate = formatDate(invoice.dueDate);
       const updatedInvoice = {
         ...invoice,
-        serie: isRectifyMode ? "R2025" : invoice.serie || "A2025", // Force R series for rectification, default A2025 for drafts
+        serie: invoice.serie,
         type: isRectifyMode ? "R1" : invoice.type, // Force R type for rectification
         rectifyInvoice: isRectifyMode
           ? invoice.serie + invoice.invoiceNumber
@@ -1380,17 +1387,15 @@ const InvoiceForm = () => {
                       formData.status === "Draft" ? "not-allowed" : "default",
                   }}
                 >
-                  {isRectifyMode ? (
-                    <>
-                      <option value="R2025">R2025</option>
-                      <option value="R2026">R2026</option>
-                    </>
-                  ) : (
-                    <>
-                      <option value="A2025">A2025</option>
-                      <option value="A2026">A2026</option>
-                    </>
-                  )}
+                  {config?.series?.invoices
+                    ?.filter((s) =>
+                      isRectifyMode ? s.startsWith("R") : !s.startsWith("R"),
+                    )
+                    .map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
                 </select>
               </div>
 

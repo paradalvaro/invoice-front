@@ -11,15 +11,20 @@ const Sidebar = () => {
     { label: t("sales"), path: "/invoices", icon: "🛒" },
     { label: t("albaranes"), path: "/albaranes", icon: "🚚" },
     { label: t("budgets"), path: "/budgets", icon: "📄" },
+
     { label: t("clients"), path: "/clients", icon: "👥" },
+
     { label: t("users"), path: "/users", icon: "👤" },
-    /*{
+
+    { label: "Modelo 347", path: "/modelo347", icon: "📊" },
+    // Add other items as visual placeholders if needed
+    { label: t("bills"), path: "/bills", icon: "💰" },
+    { label: t("suppliers"), path: "/suppliers", icon: "🏭" },
+    {
       label: t("configuration") || "Configuración",
       path: "/configuration",
       icon: "⚙️",
-    },*/
-    { label: "Modelo 347", path: "/modelo347", icon: "📊" },
-    // Add other items as visual placeholders if needed
+    },
   ];
 
   return (

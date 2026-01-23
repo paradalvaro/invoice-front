@@ -11,6 +11,10 @@ import BudgetList from "./pages/BudgetList";
 import BudgetForm from "./pages/BudgetForm";
 import AlbaranList from "./pages/AlbaranList";
 import AlbaranForm from "./pages/AlbaranForm";
+import SupplierList from "./pages/SupplierList";
+import SupplierForm from "./pages/SupplierForm";
+import BillList from "./pages/BillList";
+import BillForm from "./pages/BillForm";
 import Modelo347 from "./pages/Modelo347";
 import Configuration from "./pages/Configuration";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -45,6 +49,14 @@ function App() {
               <Route path="/clients" element={<ClientList />} />
               <Route path="/clients/new" element={<ClientForm />} />
               <Route path="/clients/edit/:id" element={<ClientForm />} />
+
+              <Route path="/suppliers" element={<SupplierList />} />
+              <Route path="/suppliers/new" element={<SupplierForm />} />
+              <Route path="/suppliers/edit/:id" element={<SupplierForm />} />
+
+              <Route path="/bills" element={<BillList />} />
+              <Route path="/bills/new" element={<BillForm />} />
+              <Route path="/bills/edit/:id" element={<BillForm />} />
 
               <Route path="/budgets" element={<BudgetList />} />
               <Route path="/budgets/new" element={<BudgetForm />} />

@@ -73,7 +73,7 @@ const BudgetForm = () => {
   }, [config.timezone]);
 
   const [formData, setFormData] = useState({
-    serie: "P2025",
+    serie: "",
     budgetNumber: "",
     client: "",
     clientName: "", // Temporary for searching
@@ -122,23 +122,23 @@ const BudgetForm = () => {
 
   // Reactive initialization for NEW budgets
   useEffect(() => {
-    if (
-      !isEditMode &&
-      config.timezone &&
-      (!formData.date || !formData.dueDate)
-    ) {
+    if (!isEditMode && config.timezone) {
       const today = getTodayStr();
+      const defaultSerie = config?.series?.budgets?.[0] || "";
       setFormData((prev) => ({
         ...prev,
         date: prev.date || today,
         dueDate: prev.dueDate || today,
+        serie: prev.serie || defaultSerie,
       }));
     }
   }, [
     config.timezone,
+    config.series,
     isEditMode,
     formData.date,
     formData.dueDate,
+    formData.serie,
     getTodayStr,
   ]);
 
@@ -951,20 +951,19 @@ const BudgetForm = () => {
                 name="serie"
                 value={formData.serie}
                 onChange={handleChange}
-                disabled={formData.status === "Draft"}
                 style={{
                   width: "100%",
                   padding: "0.5rem",
                   borderRadius: "0.375rem",
                   border: "1px solid #cbd5e1",
-                  backgroundColor:
-                    formData.status === "Draft" ? "#f3f4f6" : "white",
-                  cursor:
-                    formData.status === "Draft" ? "not-allowed" : "default",
+                  backgroundColor: "white",
                 }}
               >
-                <option value="P2025">P2025</option>
-                <option value="P2026">P2026</option>
+                {config?.series?.budgets?.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
               </select>
             </div>
             <div>
@@ -983,16 +982,13 @@ const BudgetForm = () => {
                 name="budgetNumber"
                 value={formData.budgetNumber}
                 onChange={handleChange}
-                required={formData.status !== "Draft"}
                 style={{
                   width: "100%",
                   padding: "0.5rem",
                   borderRadius: "0.375rem",
                   border: "1px solid #cbd5e1",
-                  backgroundColor: "#f3f4f6",
-                  cursor: "not-allowed",
+                  backgroundColor: "white",
                 }}
-                readOnly
               />
             </div>
             <div>

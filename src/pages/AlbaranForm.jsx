@@ -73,7 +73,7 @@ const AlbaranForm = () => {
   }, [config.timezone]);
 
   const [formData, setFormData] = useState({
-    serie: "AL2025",
+    serie: "",
     AlbaranNumber: "",
     client: "",
     clientName: "",
@@ -86,14 +86,16 @@ const AlbaranForm = () => {
 
   // Reactive initialization for NEW albaranes
   useEffect(() => {
-    if (!isEditMode && config.timezone && !formData.date) {
+    if (!isEditMode && config.timezone) {
       const today = getTodayStr();
+      const defaultSerie = config?.series?.albaranes?.[0] || "";
       setFormData((prev) => ({
         ...prev,
         date: prev.date || today,
+        serie: prev.serie || defaultSerie,
       }));
     }
-  }, [config.timezone, isEditMode, formData.date, getTodayStr]);
+  }, [config.timezone, config.series, isEditMode, formData.date, getTodayStr]);
 
   const [clients, setClients] = useState([]);
   const [filteredClients, setFilteredClients] = useState([]);
@@ -1033,8 +1035,11 @@ const AlbaranForm = () => {
                   backgroundColor: "white",
                 }}
               >
-                <option value="AL2025">AL2025</option>
-                <option value="AL2026">AL2026</option>
+                {config?.series?.albaranes?.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
               </select>
             </div>
             <div>

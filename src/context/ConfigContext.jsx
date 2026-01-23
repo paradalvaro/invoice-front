@@ -6,6 +6,12 @@ const ConfigContext = createContext();
 export const ConfigProvider = ({ children }) => {
   const [config, setConfig] = useState({
     timezone: "Europe/Madrid",
+    series: {
+      invoices: [],
+      albaranes: [],
+      budgets: [],
+      bills: [],
+    },
   });
   const [loading, setLoading] = useState(true);
 
